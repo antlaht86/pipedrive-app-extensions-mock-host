@@ -465,3 +465,55 @@ test('the unsubscribe function stops further events', async () => {
 
   expect(received).toEqual([]);
 });
+
+// Notification badge (SET_NOTIFICATION).
+
+test('SET_NOTIFICATION shows the notification count', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.SET_NOTIFICATION, { number: 3 });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  expect(ui.getByText('3')).toBeVisible();
+});
+
+// Focus mode (SET_FOCUS_MODE).
+
+test('SET_FOCUS_MODE toggles a focus-mode indicator', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+
+  await sdk.execute(Command.SET_FOCUS_MODE, true);
+  expect(ui.getByText('Focus mode')).toBeVisible();
+
+  await sdk.execute(Command.SET_FOCUS_MODE, false);
+  expect(ui.queryByText('Focus mode')).toBeNull();
+});
+
+// Redirect (REDIRECT_TO).
+
+test('REDIRECT_TO shows where it would navigate', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.REDIRECT_TO, { view: 'deals' });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  expect(ui.getByText('Redirect → deals')).toBeVisible();
+});
+
+// Floating window visibility (SHOW/HIDE_FLOATING_WINDOW).
+
+test('HIDE_FLOATING_WINDOW hides the floating window and SHOW reveals it', async () => {
+  host = startPipedriveMockHost();
+  const fw = renderSurface('pd-mock-floating-window');
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.HIDE_FLOATING_WINDOW, {});
+  expect(fw).not.toBeVisible();
+
+  await sdk.execute(Command.SHOW_FLOATING_WINDOW, {});
+  expect(fw).toBeVisible();
+});

@@ -68,6 +68,11 @@ const COMMAND_SHOW_CONFIRMATION = 'show_confirmation';
 const COMMAND_RESIZE = 'resize';
 const COMMAND_GET_METADATA = 'get_metadata';
 const COMMAND_GET_SIGNED_TOKEN = 'get_signed_token';
+const COMMAND_SET_NOTIFICATION = 'set_notification';
+const COMMAND_SET_FOCUS_MODE = 'set_focus_mode';
+const COMMAND_REDIRECT_TO = 'redirect_to';
+const COMMAND_SHOW_FLOATING_WINDOW = 'show_floating_window';
+const COMMAND_HIDE_FLOATING_WINDOW = 'hide_floating_window';
 
 /** Returned by GET_SIGNED_TOKEN when the consumer provides no override. */
 const DEFAULT_SIGNED_TOKEN = 'dev-signed-token';
@@ -272,6 +277,44 @@ const CONFIRMATION_STYLES = `
   }
 `;
 
+// Host "chrome" indicators (notification badge, focus mode, redirect banner) —
+// top-left, clear of the snackbar (bottom-right) and floating window (top-right).
+const CHROME_STYLES = `
+  .pd-mock-chrome {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 2147483642;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    pointer-events: none;
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .pd-mock-chrome > * {
+    pointer-events: auto;
+  }
+  .pd-mock-notification {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    box-sizing: border-box;
+    border-radius: 10px;
+    background: #d6453d;
+    color: #fff;
+    font: 700 12px/20px system-ui, sans-serif;
+    text-align: center;
+  }
+  .pd-mock-indicator {
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: #23272e;
+    color: #fff;
+    font-weight: 600;
+  }
+`;
+
 /** Inert handle returned when there is no DOM (e.g. SSR). */
 const NOOP_HOST: MockHost = {
   get shadowRoot(): ShadowRoot {
@@ -436,6 +479,22 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     shadowRoot.appendChild(backdrop);
   };
 
+  // Lazily create the top-left chrome layer that holds host indicators.
+  const ensureChrome = (): HTMLElement => {
+    const existing = shadowRoot.querySelector<HTMLElement>('.pd-mock-chrome');
+    if (existing) {
+      return existing;
+    }
+    const style = document.createElement('style');
+    style.setAttribute('data-pd-mock', 'chrome-styles');
+    style.textContent = CHROME_STYLES;
+    shadowRoot.appendChild(style);
+    const chrome = document.createElement('div');
+    chrome.className = 'pd-mock-chrome';
+    shadowRoot.appendChild(chrome);
+    return chrome;
+  };
+
   // Where the App Extension renders. Auto-detect the first surface wrapper;
   // fall back to the document body (config.surface override is a later slice).
   const resolveSurface = (): HTMLElement =>
@@ -554,6 +613,56 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
             reply({ token: DEFAULT_SIGNED_TOKEN });
           }
         })();
+        break;
+      }
+      case COMMAND_SET_NOTIFICATION: {
+        const args = payload.args as { number?: number } | undefined;
+        const chrome = ensureChrome();
+        let badge = chrome.querySelector<HTMLElement>('.pd-mock-notification');
+        if (!badge) {
+          badge = document.createElement('div');
+          badge.className = 'pd-mock-notification';
+          chrome.appendChild(badge);
+        }
+        badge.textContent = args?.number != null ? String(args.number) : '';
+        reply();
+        break;
+      }
+      case COMMAND_SHOW_FLOATING_WINDOW:
+      case COMMAND_HIDE_FLOATING_WINDOW: {
+        const fw = document.querySelector<HTMLElement>(
+          '.pd-mock-floating-window',
+        );
+        if (fw) {
+          fw.style.display =
+            payload.command === COMMAND_SHOW_FLOATING_WINDOW ? '' : 'none';
+        }
+        reply();
+        break;
+      }
+      case COMMAND_REDIRECT_TO: {
+        const args = payload.args as { view?: string } | undefined;
+        const banner = document.createElement('div');
+        banner.className = 'pd-mock-indicator pd-mock-redirect';
+        banner.textContent = `Redirect → ${args?.view ?? ''}`;
+        ensureChrome().appendChild(banner);
+        window.setTimeout(() => banner.remove(), 4000);
+        reply();
+        break;
+      }
+      case COMMAND_SET_FOCUS_MODE: {
+        const enabled = payload.args === true;
+        const chrome = ensureChrome();
+        const existing = chrome.querySelector('.pd-mock-focus');
+        if (enabled && !existing) {
+          const el = document.createElement('div');
+          el.className = 'pd-mock-indicator pd-mock-focus';
+          el.textContent = 'Focus mode';
+          chrome.appendChild(el);
+        } else if (!enabled && existing) {
+          existing.remove();
+        }
+        reply();
         break;
       }
       case COMMAND_GET_METADATA: {
