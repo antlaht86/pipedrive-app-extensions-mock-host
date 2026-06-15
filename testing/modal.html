@@ -1,0 +1,114 @@
+<!doctype html>
+<!--
+  Manual playground for the Custom Modal surface wrapper.
+
+  Run from the repo root:
+    npm run build
+    npx http-server . -p 8080   # or: python3 -m http.server 8080
+    open http://localhost:8080/testing/modal.html
+
+  The app is wrapped in <div class="pd-mock-modal"> — the Mock Host styles it as
+  a centred modal overlay (min 320x120, max = viewport) over a dimmed backdrop.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mock Host — Custom Modal</title>
+    <style>
+      body {
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+        max-width: 40rem;
+        margin: 3rem auto;
+        padding: 0 1rem;
+        color: #1a1a1a;
+      }
+      h1 {
+        font-size: 1.25rem;
+      }
+      button {
+        font: inherit;
+        padding: 0.5rem 1rem;
+        border: 1px solid #1a1a1a;
+        border-radius: 6px;
+        background: #fff;
+        cursor: pointer;
+      }
+      #status {
+        margin: 1rem 0;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        background: #f2f2f2;
+        font-family: ui-monospace, monospace;
+        font-size: 0.85rem;
+      }
+      label {
+        display: block;
+        margin: 0.75rem 0 0.25rem;
+        font-size: 0.85rem;
+      }
+      input {
+        font: inherit;
+        padding: 0.4rem 0.6rem;
+        width: 6rem;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Custom Modal surface</h1>
+    <p>
+      The app lives inside <code>&lt;div class="pd-mock-modal"&gt;</code>. This
+      page is dimmed by the modal's backdrop; the modal is centred on top.
+    </p>
+
+    <div class="pd-mock-modal" id="surface" style="padding: 18px">
+      <div id="status">initializing…</div>
+      <label for="w">Width (px) — clamps to 320…viewport</label>
+      <input id="w" type="number" value="520" />
+      <label for="h">Height (px) — clamps to 120…viewport</label>
+      <input id="h" type="number" value="400" />
+      <p><button id="resize" disabled>Resize modal</button></p>
+    </div>
+
+    <script src="../node_modules/@pipedrive/app-extensions-sdk/dist/index.umd.js"></script>
+    <script src="../dist/index.global.js"></script>
+    <script>
+      (async () => {
+        const statusEl = document.getElementById('status');
+        const resizeEl = document.getElementById('resize');
+        const wEl = document.getElementById('w');
+        const hEl = document.getElementById('h');
+
+        const SDKGlobal = window.AppExtensionsSDK;
+        const AppExtensionsSDK =
+          typeof SDKGlobal === 'function' ? SDKGlobal : SDKGlobal.default;
+        const { Command } = SDKGlobal;
+        const { startPipedriveMockHost } = window.PipedriveMockHost;
+
+        startPipedriveMockHost();
+        const sdk = await new AppExtensionsSDK({
+          identifier: 'dev-local',
+        }).initialize();
+
+        statusEl.textContent = 'SDK initialized ✓';
+        resizeEl.disabled = false;
+
+        resizeEl.addEventListener('click', async () => {
+          await sdk.execute(Command.RESIZE, {
+            width: Number(wEl.value),
+            height: Number(hEl.value),
+          });
+          const meta = await sdk.execute(Command.GET_METADATA);
+          statusEl.textContent = `GET_METADATA → ${meta.windowWidth}×${meta.windowHeight}px`;
+        });
+      })().catch((err) => {
+        document.getElementById('status').textContent = 'Error: ' + err.message;
+      });
+    </script>
+  </body>
+</html>

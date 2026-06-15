@@ -71,6 +71,26 @@ const COMMAND_GET_SIGNED_TOKEN = 'get_signed_token';
 /** Returned by GET_SIGNED_TOKEN when the consumer provides no override. */
 const DEFAULT_SIGNED_TOKEN = 'dev-signed-token';
 
+// Per-type RESIZE bounds [min, max] in px (ADR-0006). Panel width is fixed
+// (min === max), so RESIZE can never change it. Types are added here as their
+// wrappers land; the surface selector and clamping derive from these keys.
+const SURFACE_BOUNDS: Record<
+  string,
+  { width: [number, number]; height: [number, number] }
+> = {
+  'pd-mock-panel': { width: [385, 385], height: [100, 750] },
+  'pd-mock-modal': { width: [320, Infinity], height: [120, Infinity] },
+  'pd-mock-floating-window': { width: [200, 800], height: [70, 700] },
+};
+const SURFACE_SELECTOR = Object.keys(SURFACE_BOUNDS)
+  .map((cls) => `.${cls}`)
+  .join(', ');
+const clampToRange = (value: number, [min, max]: [number, number]): number =>
+  Math.min(max, Math.max(min, value));
+// A modal's max is the live viewport: bounds use Infinity, resolved here.
+const resolveMax = (max: number, viewport: number): number =>
+  max === Infinity ? viewport : max;
+
 // Scoped to the shadow root — a calm, grey, clearly-a-mock surface. The palette
 // lives in CSS custom properties on :host so themes can override it later.
 const SNACKBAR_STYLES = `
@@ -154,6 +174,36 @@ const SURFACE_STYLES = `
     border: 1px solid #e3e6ea;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(20, 24, 31, 0.08);
+  }
+  .pd-mock-modal {
+    box-sizing: border-box;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 520px;
+    height: 400px;
+    overflow: auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow:
+      0 0 0 100vmax rgba(20, 24, 31, 0.35),
+      0 16px 48px rgba(20, 24, 31, 0.3);
+    z-index: 2147483641;
+  }
+  .pd-mock-floating-window {
+    box-sizing: border-box;
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    width: 320px;
+    height: 240px;
+    overflow: auto;
+    background: #fff;
+    border: 1px solid #e3e6ea;
+    border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(20, 24, 31, 0.22);
+    z-index: 2147483640;
   }
 `;
 
@@ -382,10 +432,10 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     shadowRoot.appendChild(backdrop);
   };
 
-  // Where the App Extension renders. Auto-detect the panel wrapper; fall back to
-  // the document body (config.surface override is a later slice).
+  // Where the App Extension renders. Auto-detect the first surface wrapper;
+  // fall back to the document body (config.surface override is a later slice).
   const resolveSurface = (): HTMLElement =>
-    document.querySelector<HTMLElement>('.pd-mock-panel') ?? document.body;
+    document.querySelector<HTMLElement>(SURFACE_SELECTOR) ?? document.body;
 
   const onMessage = (event: MessageEvent): void => {
     const data = event.data as
@@ -434,14 +484,32 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         break;
       }
       case COMMAND_RESIZE: {
-        const args = payload.args as { height?: number } | undefined;
+        const args = payload.args as
+          | { width?: number; height?: number }
+          | undefined;
+        const surface = resolveSurface();
+        // Clamp each requested dimension to the surface type's bounds. A panel's
+        // width is fixed (min === max), so a width request resolves back to 385.
+        // Untyped surfaces (document.body fallback) resize freely.
+        const type = Object.keys(SURFACE_BOUNDS).find((cls) =>
+          surface.classList.contains(cls),
+        );
+        const bounds = type ? SURFACE_BOUNDS[type] : undefined;
+        if (args?.width != null) {
+          const width = bounds
+            ? clampToRange(args.width, [
+                bounds.width[0],
+                resolveMax(bounds.width[1], window.innerWidth),
+              ])
+            : args.width;
+          surface.style.width = `${width}px`;
+        }
         if (args?.height != null) {
-          const surface = resolveSurface();
-          // A Custom Panel's height is clamped to 100–750px (width is fixed, so
-          // RESIZE's width argument is ignored). Untyped surfaces resize freely.
-          const isPanel = surface.classList.contains('pd-mock-panel');
-          const height = isPanel
-            ? Math.min(750, Math.max(100, args.height))
+          const height = bounds
+            ? clampToRange(args.height, [
+                bounds.height[0],
+                resolveMax(bounds.height[1], window.innerHeight),
+              ])
             : args.height;
           surface.style.height = `${height}px`;
         }

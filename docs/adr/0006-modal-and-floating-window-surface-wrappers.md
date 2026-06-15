@@ -11,11 +11,11 @@ Surface that `RESIZE` sizes and `GET_METADATA` measures.
 Unlike the Custom Panel (fixed width, only height resizes), modal and floating
 windows resize in **both** dimensions, each clamped to its real Pipedrive bounds:
 
-| Type | Width | Height |
-| --- | --- | --- |
-| Custom Panel | fixed ~385px (`RESIZE` width ignored) | 100–750px |
-| Custom Modal | 320px – viewport width | 120px – viewport height |
-| Floating Window | 200–800px | 70–700px |
+| Type            | Width                                 | Height                  |
+| --------------- | ------------------------------------- | ----------------------- |
+| Custom Panel    | fixed ~385px (`RESIZE` width ignored) | 100–750px               |
+| Custom Modal    | 320px – viewport width                | 120px – viewport height |
+| Floating Window | 200–800px                             | 70–700px                |
 
 `RESIZE` reads the surface type from its class and clamps accordingly. The
 modal's maximum is the live viewport (`window.innerWidth`/`innerHeight`).
@@ -39,9 +39,9 @@ move it to the right place.
   class-based.
 - **Default sizes** (before any `RESIZE`, within bounds): Custom Panel 385×100
   (unchanged), Custom Modal 520×400, Floating Window 320×240.
-- **Floating Window corner**: bottom-right (matches Pipedrive). It shares that
-  corner with the Snackbar; the Snackbar is top-most and transient, so it
-  overlays the floating window briefly when both are visible — accepted.
+- **Floating Window corner**: top-right, `2rem` from the top and right edges.
+  This keeps it clear of the Snackbar (which is bottom-right), so the two never
+  overlap.
 - **z-index scale** (bottom → top): Custom Panel (inline, no z) <
   Floating Window `2147483640` < Custom Modal `2147483641` <
   Confirmation dialog `2147483646` < Snackbar `2147483647`. Alerts/transient UI

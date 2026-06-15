@@ -1,0 +1,112 @@
+<!doctype html>
+<!--
+  Manual playground for the Floating Window surface wrapper.
+
+  Run from the repo root:
+    npm run build
+    npx http-server . -p 8080   # or: python3 -m http.server 8080
+    open http://localhost:8080/testing/floating-window.html
+
+  The app is wrapped in <div class="pd-mock-floating-window"> — the Mock Host
+  styles it as a fixed bottom-right window (width 200-800, height 70-700).
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mock Host — Floating Window</title>
+    <style>
+      body {
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+        max-width: 40rem;
+        margin: 3rem auto;
+        padding: 0 1rem;
+        color: #1a1a1a;
+      }
+      h1 {
+        font-size: 1.25rem;
+      }
+      button {
+        font: inherit;
+        padding: 0.4rem 0.8rem;
+        border: 1px solid #1a1a1a;
+        border-radius: 6px;
+        background: #fff;
+        cursor: pointer;
+      }
+      #status {
+        margin: 0 0 0.5rem;
+        font-family: ui-monospace, monospace;
+        font-size: 0.78rem;
+      }
+      label {
+        display: block;
+        margin: 0.4rem 0 0.2rem;
+        font-size: 0.78rem;
+      }
+      input {
+        font: inherit;
+        padding: 0.3rem 0.5rem;
+        width: 5rem;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Floating Window surface</h1>
+    <p>
+      The app lives inside
+      <code>&lt;div class="pd-mock-floating-window"&gt;</code>, fixed to the
+      bottom-right corner.
+    </p>
+
+    <div class="pd-mock-floating-window" id="surface" style="padding: 12px">
+      <div id="status">initializing…</div>
+      <label for="w">Width (200–800)</label>
+      <input id="w" type="number" value="320" />
+      <label for="h">Height (70–700)</label>
+      <input id="h" type="number" value="240" />
+      <p><button id="resize" disabled>Resize</button></p>
+    </div>
+
+    <script src="../node_modules/@pipedrive/app-extensions-sdk/dist/index.umd.js"></script>
+    <script src="../dist/index.global.js"></script>
+    <script>
+      (async () => {
+        const statusEl = document.getElementById('status');
+        const resizeEl = document.getElementById('resize');
+        const wEl = document.getElementById('w');
+        const hEl = document.getElementById('h');
+
+        const SDKGlobal = window.AppExtensionsSDK;
+        const AppExtensionsSDK =
+          typeof SDKGlobal === 'function' ? SDKGlobal : SDKGlobal.default;
+        const { Command } = SDKGlobal;
+        const { startPipedriveMockHost } = window.PipedriveMockHost;
+
+        startPipedriveMockHost();
+        const sdk = await new AppExtensionsSDK({
+          identifier: 'dev-local',
+        }).initialize();
+
+        statusEl.textContent = 'SDK initialized ✓';
+        resizeEl.disabled = false;
+
+        resizeEl.addEventListener('click', async () => {
+          await sdk.execute(Command.RESIZE, {
+            width: Number(wEl.value),
+            height: Number(hEl.value),
+          });
+          const meta = await sdk.execute(Command.GET_METADATA);
+          statusEl.textContent = `${meta.windowWidth}×${meta.windowHeight}px`;
+        });
+      })().catch((err) => {
+        document.getElementById('status').textContent = 'Error: ' + err.message;
+      });
+    </script>
+  </body>
+</html>

@@ -237,15 +237,23 @@ test('SHOW_CONFIRMATION uses custom okText and cancelText labels', async () => {
 
 // Custom Panel surface wrapper (see ADR-0005).
 
+function renderSurface(className: string): HTMLElement {
+  const el = document.createElement('div');
+  el.className = className;
+  document.body.appendChild(el);
+  return el;
+}
+
 function renderPanel(): HTMLElement {
-  const panel = document.createElement('div');
-  panel.className = 'pd-mock-panel';
-  document.body.appendChild(panel);
-  return panel;
+  return renderSurface('pd-mock-panel');
 }
 
 afterEach(() => {
-  document.querySelectorAll('.pd-mock-panel').forEach((el) => el.remove());
+  document
+    .querySelectorAll(
+      '.pd-mock-panel, .pd-mock-modal, .pd-mock-floating-window',
+    )
+    .forEach((el) => el.remove());
 });
 
 test('a .pd-mock-panel wrapper gets the fixed panel width', async () => {
@@ -297,4 +305,79 @@ test('GET_METADATA returns the panel surface dimensions', async () => {
   const meta = await sdk.execute(Command.GET_METADATA);
 
   expect(meta).toEqual({ windowWidth: 385, windowHeight: 300 });
+});
+
+// Custom Modal surface wrapper (see ADR-0006).
+
+test('a .pd-mock-modal wrapper gets the default modal size', async () => {
+  host = startPipedriveMockHost();
+
+  const modal = renderSurface('pd-mock-modal');
+
+  expect([modal.offsetWidth, modal.offsetHeight]).toEqual([520, 400]);
+});
+
+test('RESIZE clamps the modal width to at least 320px', async () => {
+  host = startPipedriveMockHost();
+  const modal = renderSurface('pd-mock-modal');
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.RESIZE, { width: 100, height: 300 });
+
+  expect(modal.offsetWidth).toBe(320);
+});
+
+test('RESIZE clamps the modal height to at least 120px', async () => {
+  host = startPipedriveMockHost();
+  const modal = renderSurface('pd-mock-modal');
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.RESIZE, { width: 400, height: 50 });
+
+  expect(modal.offsetHeight).toBe(120);
+});
+
+test('RESIZE clamps the modal size to the viewport', async () => {
+  host = startPipedriveMockHost();
+  const modal = renderSurface('pd-mock-modal');
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.RESIZE, { width: 9000, height: 9000 });
+
+  expect(modal.offsetWidth).toBe(window.innerWidth);
+  expect(modal.offsetHeight).toBe(window.innerHeight);
+});
+
+// Floating Window surface wrapper (see ADR-0006).
+
+test('a .pd-mock-floating-window wrapper gets the default floating size', async () => {
+  host = startPipedriveMockHost();
+
+  const fw = renderSurface('pd-mock-floating-window');
+
+  expect([fw.offsetWidth, fw.offsetHeight]).toEqual([320, 240]);
+});
+
+test('RESIZE clamps the floating window width to 200–800px', async () => {
+  host = startPipedriveMockHost();
+  const fw = renderSurface('pd-mock-floating-window');
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.RESIZE, { width: 100, height: 240 });
+  expect(fw.offsetWidth).toBe(200);
+
+  await sdk.execute(Command.RESIZE, { width: 9000, height: 240 });
+  expect(fw.offsetWidth).toBe(800);
+});
+
+test('RESIZE clamps the floating window height to 70–700px', async () => {
+  host = startPipedriveMockHost();
+  const fw = renderSurface('pd-mock-floating-window');
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.RESIZE, { width: 320, height: 30 });
+  expect(fw.offsetHeight).toBe(70);
+
+  await sdk.execute(Command.RESIZE, { width: 320, height: 9000 });
+  expect(fw.offsetHeight).toBe(700);
 });
