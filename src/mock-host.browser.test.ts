@@ -112,6 +112,21 @@ test('SHOW_CONFIRMATION resolves via config.onConfirmation without UI', async ()
   expect(result).toEqual({ confirmed: true });
 });
 
+test('SHOW_CONFIRMATION resolves to false when onConfirmation throws', async () => {
+  host = startPipedriveMockHost({
+    onConfirmation: () => {
+      throw new Error('boom');
+    },
+  });
+  const sdk = await createSdk();
+
+  const result = await sdk.execute(Command.SHOW_CONFIRMATION, {
+    title: 'Delete?',
+  });
+
+  expect(result).toEqual({ confirmed: false });
+});
+
 test('SHOW_CONFIRMATION renders a dialog with the title when not overridden', async () => {
   host = startPipedriveMockHost();
   const sdk = await createSdk();
@@ -162,6 +177,21 @@ test('SHOW_CONFIRMATION renders the optional description', async () => {
 
   const ui = within(host.shadowRoot as unknown as HTMLElement);
   expect(await ui.findByText('This cannot be undone.')).toBeVisible();
+});
+
+test('SHOW_CONFIRMATION uses custom okText and cancelText labels', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  void sdk.execute(Command.SHOW_CONFIRMATION, {
+    title: 'Delete this deal?',
+    okText: 'Delete',
+    cancelText: 'Keep',
+  });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  expect(await ui.findByRole('button', { name: 'Delete' })).toBeVisible();
+  expect(ui.getByRole('button', { name: 'Keep' })).toBeVisible();
 });
 
 // Custom Panel surface wrapper (see ADR-0005).

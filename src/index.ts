@@ -408,9 +408,16 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
       case COMMAND_SHOW_CONFIRMATION: {
         const args = payload.args as ConfirmationArgs;
         if (config.onConfirmation) {
-          Promise.resolve(config.onConfirmation(args)).then((confirmed) =>
-            reply({ confirmed: Boolean(confirmed) }),
-          );
+          // Never leave the caller hanging: a throwing or rejecting override
+          // resolves to "not confirmed".
+          void (async () => {
+            try {
+              const confirmed = await config.onConfirmation!(args);
+              reply({ confirmed: Boolean(confirmed) });
+            } catch {
+              reply({ confirmed: false });
+            }
+          })();
         } else {
           // Render an interactive dialog that resolves when the user answers.
           renderConfirmation(args, (confirmed) => reply({ confirmed }));
