@@ -47,6 +47,62 @@ const MESSAGE_TYPE_COMMAND = 'command';
 const COMMAND_INITIALIZE = 'initialize';
 const COMMAND_SHOW_SNACKBAR = 'show_snackbar';
 
+// Scoped to the shadow root — neutral, Pipedrive-flavoured, clearly a mock.
+const SNACKBAR_STYLES = `
+  .pd-mock-layer {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 2147483647;
+    pointer-events: none;
+  }
+  .pd-mock-snackbar {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(90vw, 480px);
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #23272e;
+    color: #fff;
+    font: 14px/1.4 system-ui, -apple-system, sans-serif;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+    animation: pd-mock-in 0.18s ease-out;
+  }
+  .pd-mock-badge {
+    flex: none;
+    font: 700 9px/1 system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 5px;
+    border-radius: 4px;
+    background: #f4c542;
+    color: #23272e;
+  }
+  .pd-mock-msg {
+    flex: 1 1 auto;
+  }
+  .pd-mock-link {
+    flex: none;
+    color: #8ab4ff;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  @keyframes pd-mock-in {
+    from {
+      transform: translateY(8px);
+    }
+    to {
+      transform: none;
+    }
+  }
+`;
+
 /** Inert handle returned when there is no DOM (e.g. SSR). */
 const NOOP_HOST: MockHost = {
   get shadowRoot(): ShadowRoot {
@@ -75,11 +131,54 @@ export function startPipedriveMockHost(_config?: MockHostConfig): MockHost {
   const shadowRoot = hostEl.attachShadow({ mode: 'open' });
   document.body.appendChild(hostEl);
 
-  const renderSnackbar = (message: string): void => {
-    const el = document.createElement('div');
-    el.setAttribute('data-mock', 'snackbar');
-    el.textContent = message;
-    shadowRoot.appendChild(el);
+  // The snackbar layer is created lazily on first use; styles live in the shadow
+  // root so consumer CSS cannot reach them (and vice versa).
+  const ensureSnackbarLayer = (): HTMLElement => {
+    const existing = shadowRoot.querySelector<HTMLElement>('.pd-mock-layer');
+    if (existing) {
+      return existing;
+    }
+    const style = document.createElement('style');
+    style.textContent = SNACKBAR_STYLES;
+    shadowRoot.appendChild(style);
+    const layer = document.createElement('div');
+    layer.className = 'pd-mock-layer';
+    shadowRoot.appendChild(layer);
+    return layer;
+  };
+
+  const renderSnackbar = (
+    message: string,
+    link?: { url: string; label: string },
+  ): void => {
+    const bar = document.createElement('div');
+    bar.className = 'pd-mock-snackbar';
+    bar.setAttribute('data-mock', 'snackbar');
+    bar.setAttribute('role', 'status');
+
+    const badge = document.createElement('span');
+    badge.className = 'pd-mock-badge';
+    badge.textContent = 'MOCK';
+    bar.appendChild(badge);
+
+    const text = document.createElement('span');
+    text.className = 'pd-mock-msg';
+    text.textContent = message;
+    bar.appendChild(text);
+
+    if (link) {
+      const anchor = document.createElement('a');
+      anchor.className = 'pd-mock-link';
+      anchor.href = link.url;
+      anchor.textContent = link.label;
+      anchor.target = '_blank';
+      anchor.rel = 'noreferrer';
+      bar.appendChild(anchor);
+    }
+
+    ensureSnackbarLayer().appendChild(bar);
+    // Snackbars dismiss themselves, like the real one.
+    window.setTimeout(() => bar.remove(), 5000);
   };
 
   const onMessage = (event: MessageEvent): void => {
@@ -102,8 +201,10 @@ export function startPipedriveMockHost(_config?: MockHostConfig): MockHost {
         reply();
         break;
       case COMMAND_SHOW_SNACKBAR: {
-        const args = payload.args as { message?: string } | undefined;
-        renderSnackbar(args?.message ?? '');
+        const args = payload.args as
+          | { message?: string; link?: { url: string; label: string } }
+          | undefined;
+        renderSnackbar(args?.message ?? '', args?.link);
         reply();
         break;
       }

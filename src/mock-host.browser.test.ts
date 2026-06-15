@@ -51,3 +51,29 @@ test('SHOW_SNACKBAR renders a snackbar with the given message', async () => {
   const ui = within(host.shadowRoot as unknown as HTMLElement);
   expect(ui.getByText('Deal saved!')).toBeVisible();
 });
+
+test('SHOW_SNACKBAR renders the optional action link', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.SHOW_SNACKBAR, {
+    message: 'Deal saved!',
+    link: { url: 'https://example.com/deals/1', label: 'View' },
+  });
+
+  const link = within(host.shadowRoot as unknown as HTMLElement).getByRole(
+    'link',
+    { name: 'View' },
+  );
+  expect(link).toHaveAttribute('href', 'https://example.com/deals/1');
+});
+
+test('the snackbar is visibly marked as a mock', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.SHOW_SNACKBAR, { message: 'Deal saved!' });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  expect(ui.getByText('MOCK')).toBeVisible();
+});
