@@ -715,3 +715,33 @@ test('initialize({ size }) applies width and height to a floating window', async
 
   expect([fw.offsetWidth, fw.offsetHeight]).toEqual([500, 300]);
 });
+
+// Theming: every host UI element is overridable via CSS custom properties.
+
+test('host UI colors are overridable via CSS custom properties on the host', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+  const el = document.querySelector('pipedrive-mock-host') as HTMLElement;
+  el.style.setProperty('--pd-mock-negative', 'rgb(1, 2, 3)');
+
+  await sdk.execute(Command.SET_NOTIFICATION, { number: 5 });
+
+  const badge = (host.shadowRoot as ShadowRoot).querySelector(
+    '.pd-mock-notification',
+  ) as HTMLElement;
+  expect(getComputedStyle(badge).backgroundColor).toBe('rgb(1, 2, 3)');
+});
+
+test('the confirmation dialog surface is overridable via custom properties', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+  const el = document.querySelector('pipedrive-mock-host') as HTMLElement;
+  el.style.setProperty('--pd-mock-surface-bg', 'rgb(9, 9, 9)');
+
+  void sdk.execute(Command.SHOW_CONFIRMATION, { title: 'Delete?' });
+
+  const dialog = await within(
+    host.shadowRoot as unknown as HTMLElement,
+  ).findByRole('dialog');
+  expect(getComputedStyle(dialog).backgroundColor).toBe('rgb(9, 9, 9)');
+});

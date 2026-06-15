@@ -132,22 +132,40 @@ const resolveMax = (max: number, viewport: number): number =>
 
 // Scoped to the shadow root — a calm, grey, clearly-a-mock surface. The palette
 // lives in CSS custom properties on :host so themes can override it later.
-const SNACKBAR_STYLES = `
+// The full palette for every host UI element, as CSS custom properties on the
+// shadow host. Injected eagerly so all components (snackbar, confirmation,
+// modal, chrome) resolve them regardless of render order. Consumers override any
+// of these on the <pipedrive-mock-host> element (custom properties pierce the
+// shadow boundary) — e.g. `pipedrive-mock-host { --pd-mock-accent: #f06; }`.
+const HOST_VARS_STYLES = `
   :host {
+    --pd-mock-surface-bg: #ffffff;
     --pd-mock-bg: #e9ebee;
     --pd-mock-fg: #20242b;
+    --pd-mock-muted: #5b626b;
     --pd-mock-border: #d2d6dc;
     --pd-mock-badge-bg: #4a5159;
     --pd-mock-badge-fg: #f4f5f6;
     --pd-mock-link: #2563eb;
+    --pd-mock-accent: #2563eb;
+    --pd-mock-accent-fg: #ffffff;
+    --pd-mock-negative: #d6453d;
+    --pd-mock-indicator-bg: #23272e;
+    --pd-mock-indicator-fg: #ffffff;
+    --pd-mock-backdrop: rgba(20, 24, 31, 0.35);
     --pd-mock-shadow: 0 6px 20px rgba(20, 24, 31, 0.18);
   }
   :host([data-theme='dark']) {
+    --pd-mock-surface-bg: #2b2f36;
     --pd-mock-bg: #2b2f36;
     --pd-mock-fg: #eef1f4;
+    --pd-mock-muted: #aab2bd;
     --pd-mock-border: #3a4047;
     --pd-mock-link: #8ab4ff;
   }
+`;
+
+const SNACKBAR_STYLES = `
   .pd-mock-layer {
     position: fixed;
     right: 16px;
@@ -261,13 +279,13 @@ const CONFIRMATION_STYLES = `
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(20, 24, 31, 0.35);
+    background: var(--pd-mock-backdrop);
   }
   .pd-mock-confirm {
     box-sizing: border-box;
     width: min(90vw, 360px);
-    background: #fff;
-    color: #20242b;
+    background: var(--pd-mock-surface-bg);
+    color: var(--pd-mock-fg);
     border-radius: 12px;
     padding: 20px;
     box-shadow: 0 12px 40px rgba(20, 24, 31, 0.28);
@@ -281,7 +299,7 @@ const CONFIRMATION_STYLES = `
   }
   .pd-mock-confirm-desc {
     margin: 0 0 16px;
-    color: #5b626b;
+    color: var(--pd-mock-muted);
   }
   .pd-mock-confirm-actions {
     display: flex;
@@ -296,7 +314,7 @@ const CONFIRMATION_STYLES = `
     width: 100%;
     height: min(60vh, 300px);
     margin: 0 0 16px;
-    border: 1px solid #e3e6ea;
+    border: 1px solid var(--pd-mock-border);
     border-radius: 8px;
   }
   .pd-mock-confirm-btn {
@@ -304,18 +322,18 @@ const CONFIRMATION_STYLES = `
     font-weight: 600;
     padding: 7px 14px;
     border-radius: 8px;
-    border: 1px solid #d2d6dc;
-    background: #fff;
-    color: #20242b;
+    border: 1px solid var(--pd-mock-border);
+    background: var(--pd-mock-surface-bg);
+    color: var(--pd-mock-fg);
     cursor: pointer;
   }
   .pd-mock-confirm-btn--ok {
     border-color: transparent;
-    background: #2563eb;
-    color: #fff;
+    background: var(--pd-mock-accent);
+    color: var(--pd-mock-accent-fg);
   }
   .pd-mock-confirm-btn--ok.is-negative {
-    background: #d6453d;
+    background: var(--pd-mock-negative);
   }
   @keyframes pd-mock-pop {
     from {
@@ -351,16 +369,16 @@ const CHROME_STYLES = `
     padding: 0 6px;
     box-sizing: border-box;
     border-radius: 10px;
-    background: #d6453d;
-    color: #fff;
+    background: var(--pd-mock-negative);
+    color: var(--pd-mock-accent-fg);
     font: 700 12px/20px system-ui, sans-serif;
     text-align: center;
   }
   .pd-mock-indicator {
     padding: 4px 10px;
     border-radius: 6px;
-    background: #23272e;
-    color: #fff;
+    background: var(--pd-mock-indicator-bg);
+    color: var(--pd-mock-indicator-fg);
     font-weight: 600;
   }
 `;
@@ -447,6 +465,10 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // Theme drives the shadow-root CSS custom properties (default light).
   hostEl.setAttribute('data-theme', config.theme === 'dark' ? 'dark' : 'light');
   const shadowRoot = hostEl.attachShadow({ mode: 'open' });
+  // Inject the variable palette eagerly so every component can reference it.
+  const varsStyle = document.createElement('style');
+  varsStyle.textContent = HOST_VARS_STYLES;
+  shadowRoot.appendChild(varsStyle);
   document.body.appendChild(hostEl);
 
   // Surface-wrapper styles live in the light DOM, since they target the
