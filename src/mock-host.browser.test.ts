@@ -381,3 +381,26 @@ test('RESIZE clamps the floating window height to 70–700px', async () => {
   await sdk.execute(Command.RESIZE, { width: 320, height: 9000 });
   expect(fw.offsetHeight).toBe(700);
 });
+
+test('GET_METADATA returns the modal surface dimensions', async () => {
+  host = startPipedriveMockHost();
+  renderSurface('pd-mock-modal');
+  const sdk = await createSdk();
+  // Use the modal minimum, always within the test viewport.
+  await sdk.execute(Command.RESIZE, { width: 320, height: 120 });
+
+  const meta = await sdk.execute(Command.GET_METADATA);
+
+  expect(meta).toEqual({ windowWidth: 320, windowHeight: 120 });
+});
+
+test('GET_METADATA returns the floating window dimensions', async () => {
+  host = startPipedriveMockHost();
+  renderSurface('pd-mock-floating-window');
+  const sdk = await createSdk();
+  await sdk.execute(Command.RESIZE, { width: 400, height: 300 });
+
+  const meta = await sdk.execute(Command.GET_METADATA);
+
+  expect(meta).toEqual({ windowWidth: 400, windowHeight: 300 });
+});

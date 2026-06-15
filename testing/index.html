@@ -101,6 +101,8 @@
     <script src="../node_modules/@pipedrive/app-extensions-sdk/dist/index.umd.js"></script>
     <!-- Mock Host (IIFE) → window.PipedriveMockHost -->
     <script src="../dist/index.global.js"></script>
+    <!-- Shared boot helper → window.bootMockHost -->
+    <script src="boot.js"></script>
 
     <script>
       (async () => {
@@ -111,23 +113,9 @@
         const resizeEl = document.getElementById('resize');
         const confirmEl = document.getElementById('confirm');
 
-        // The UMD global is either the class itself (enums hang off it) or a
-        // namespace whose `.default` is the class — normalize both. Enums are a
-        // property of the global in either case.
-        const SDKGlobal = window.AppExtensionsSDK;
-        const AppExtensionsSDK =
-          typeof SDKGlobal === 'function' ? SDKGlobal : SDKGlobal.default;
-        const { Command } = SDKGlobal;
-        const { startPipedriveMockHost } = window.PipedriveMockHost;
-
-        // 1. Start the Mock Host (it plays the Pipedrive window).
-        const host = startPipedriveMockHost();
-
-        // 2. Initialize the real SDK against it. Top-level page, so the SDK's
-        //    default target (window.parent === window) reaches the host.
-        const sdk = await new AppExtensionsSDK({
-          identifier: 'dev-local',
-        }).initialize();
+        // Top-level page, so the SDK's default target (window.parent === window)
+        // reaches the Mock Host.
+        const { sdk, Command, host } = await window.bootMockHost();
 
         statusEl.textContent = 'SDK initialized ✓';
         buttonEl.disabled = false;
