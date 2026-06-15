@@ -61,6 +61,7 @@ export interface MockHost {
 // Wire-protocol constants — internal copies of the Real SDK's enum values, so the
 // host has no runtime dependency on @pipedrive/app-extensions-sdk (see ADR-0003).
 const MESSAGE_TYPE_COMMAND = 'command';
+const MESSAGE_TYPE_LISTENER = 'listener';
 const COMMAND_INITIALIZE = 'initialize';
 const COMMAND_SHOW_SNACKBAR = 'show_snackbar';
 const COMMAND_SHOW_CONFIRMATION = 'show_confirmation';
@@ -305,6 +306,9 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   }
 
   const calls: MockHostCall[] = [];
+  // Open listener ports the App Extension registered via `sdk.listen`, keyed by
+  // event name. `emit` pushes to every port for an event.
+  const listeners = new Map<string, Set<MessagePort>>();
 
   const hostEl = document.createElement('pipedrive-mock-host');
   const shadowRoot = hostEl.attachShadow({ mode: 'open' });
@@ -439,10 +443,32 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
 
   const onMessage = (event: MessageEvent): void => {
     const data = event.data as
-      | { payload?: { command?: string; args?: unknown; type?: string } }
+      | {
+          payload?: {
+            command?: string;
+            event?: string;
+            args?: unknown;
+            type?: string;
+          };
+        }
       | undefined;
     const payload = data?.payload;
-    if (!payload || payload.type !== MESSAGE_TYPE_COMMAND || !payload.command) {
+    if (!payload) {
+      return;
+    }
+
+    // A listener registration: keep the port and push to it on emit().
+    if (payload.type === MESSAGE_TYPE_LISTENER && payload.event) {
+      const port = event.ports[0] as MessagePort | undefined;
+      if (port) {
+        const ports = listeners.get(payload.event) ?? new Set<MessagePort>();
+        ports.add(port);
+        listeners.set(payload.event, ports);
+      }
+      return;
+    }
+
+    if (payload.type !== MESSAGE_TYPE_COMMAND || !payload.command) {
       return;
     }
 
@@ -551,8 +577,14 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
 
   const handle: MockHost = {
     shadowRoot,
-    emit() {
-      // Host-driven events land in a later slice.
+    emit(eventName, eventData) {
+      const ports = listeners.get(eventName);
+      if (!ports) {
+        return;
+      }
+      for (const port of ports) {
+        port.postMessage({ data: eventData });
+      }
     },
     getCalls() {
       return [...calls];
@@ -561,6 +593,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
       window.removeEventListener('message', onMessage);
       hostEl.remove();
       surfaceStyleEl.remove();
+      listeners.clear();
       activeHost = null;
     },
   };

@@ -1,8 +1,11 @@
 import * as sdkModule from '@pipedrive/app-extensions-sdk';
 import { within } from '@testing-library/dom';
 import { userEvent } from '@testing-library/user-event';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { startPipedriveMockHost, type MockHost } from './index.js';
+
+/** Let queued postMessage/MessageChannel deliveries run. */
+const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));
 
 // The SDK is CJS (`exports.default = class` + `__esModule`). Depending on the
 // bundler's interop, the default import is either the class itself or the
@@ -13,9 +16,15 @@ const AppExtensionsSDK = (
     ? defaultExport
     : (defaultExport as { default: unknown }).default
 ) as new (options?: { identifier?: string; targetWindow?: Window }) => {
-  initialize(): Promise<{ execute: (...args: unknown[]) => Promise<unknown> }>;
+  initialize(): Promise<{
+    execute: (...args: unknown[]) => Promise<unknown>;
+    listen: (
+      event: string,
+      cb: (response: { data?: unknown; error?: string }) => void,
+    ) => () => void;
+  }>;
 };
-const { Command } = sdkModule;
+const { Command, Event } = sdkModule;
 
 let host: MockHost | undefined;
 
@@ -403,4 +412,56 @@ test('GET_METADATA returns the floating window dimensions', async () => {
   const meta = await sdk.execute(Command.GET_METADATA);
 
   expect(meta).toEqual({ windowWidth: 400, windowHeight: 300 });
+});
+
+// Events: the host pushes to listeners via emit (see ADR-0001 / design plan).
+
+test('host.emit delivers an event to a matching listener', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+  const received: Array<{ data?: unknown }> = [];
+
+  sdk.listen(Event.VISIBILITY, (response) => received.push(response));
+  await tick(); // let the host register the listener port
+
+  host.emit(Event.VISIBILITY, { is_visible: false });
+
+  await vi.waitFor(() =>
+    expect(received).toEqual([{ data: { is_visible: false } }]),
+  );
+});
+
+test('host.emit only notifies listeners of the matching event', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+  const visibility: Array<{ data?: unknown }> = [];
+  const settings: Array<{ data?: unknown }> = [];
+
+  sdk.listen(Event.VISIBILITY, (r) => visibility.push(r));
+  sdk.listen(Event.USER_SETTINGS_CHANGE, (r) => settings.push(r));
+  await tick();
+
+  host.emit(Event.USER_SETTINGS_CHANGE, { theme: 'dark' });
+
+  await vi.waitFor(() =>
+    expect(settings).toEqual([{ data: { theme: 'dark' } }]),
+  );
+  expect(visibility).toEqual([]);
+});
+
+test('the unsubscribe function stops further events', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+  const received: Array<{ data?: unknown }> = [];
+
+  const off = sdk.listen(Event.VISIBILITY, (r) => received.push(r));
+  await tick();
+  off();
+  await tick();
+
+  host.emit(Event.VISIBILITY, { is_visible: true });
+  await tick();
+  await tick();
+
+  expect(received).toEqual([]);
 });
