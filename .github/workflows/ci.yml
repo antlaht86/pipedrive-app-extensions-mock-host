@@ -19,4 +19,6 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Install Playwright browser (for browser-mode UI tests)
+        run: npx playwright install --with-deps chromium
       - run: npm run ci

@@ -37,12 +37,31 @@ is implemented today.)
 ## Development
 
 ```bash
-npm install      # install dependencies
-npm run dev      # run tests in watch mode (vitest)
-npm test         # run tests once
-npm run build    # type-check and emit dist/ with declarations
-npm run ci       # build + check formatting + test (what CI runs)
+npm install         # install dependencies
+npm run dev         # run tests in watch mode (vitest)
+npm test            # run all tests once (unit + browser)
+npm run test:unit   # fast logic/DOM tests only (jsdom)
+npm run test:browser # UI component tests only (real Chromium)
+npm run build       # type-check and emit dist/ with declarations
+npm run ci          # build + check formatting + test (what CI runs)
 ```
+
+### Testing strategy
+
+Tests run on [Vitest](https://vitest.dev) across two projects:
+
+- **`unit`** — fast tests in **jsdom** for logic and DOM structure. Files:
+  `src/**/*.test.ts`.
+- **`browser`** — UI component tests in a **real browser** (Chromium via
+  [Vitest Browser Mode](https://vitest.dev/guide/browser/) + Playwright), so
+  layout, focus management, `z-index`, CSS and real events are exercised
+  truthfully — things jsdom cannot model. Files: `src/**/*.browser.test.ts`.
+
+Both use [Testing Library](https://testing-library.com)
+(`@testing-library/dom` + `user-event`) and `@testing-library/jest-dom`
+matchers, so the same query/assertion style works in either project. Running
+the browser project locally requires the Chromium binary
+(`npx playwright install chromium`).
 
 ### Releasing
 
