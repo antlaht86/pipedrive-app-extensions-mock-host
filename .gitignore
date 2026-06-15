@@ -4,3 +4,6 @@ dist
 .DS_Store
 coverage
 .vitest
+__screenshots__
+.playwright-mcp
+.vitest-attachments

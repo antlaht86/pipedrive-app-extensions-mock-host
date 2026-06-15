@@ -20,10 +20,10 @@ build inlines everything by design.
 2. **@arethetypeswrong/cli** — type resolution across node10 / node16 CJS+ESM /
    bundler.
 3. **Custom `dist` scan** — two complementary checks:
-   - *Structural allowlist* (ESM + CJS): every bare `import`/`require` specifier
+   - _Structural allowlist_ (ESM + CJS): every bare `import`/`require` specifier
      must be a declared `peerDependency` or a Node builtin — ideally none, since
      the Mock Host keeps internal copies of the wire constants (see ADR-0003).
-   - *Denylist content scan* (all formats incl. IIFE): the bundle must not
+   - _Denylist content scan_ (all formats incl. IIFE): the bundle must not
      contain the package-name signatures of any `devDependency` / `peerDependency`
      — this catches code inlined into the IIFE, where there is no import statement
      to inspect.
@@ -35,6 +35,6 @@ build inlines everything by design.
 - The structural allowlist reads `peerDependencies` from `package.json`, so it
   stays correct as that set changes; the denylist derives from the dependency
   names, so new dev/test packages are covered automatically.
-- If the Mock Host ever needs the Real SDK's enum *values* at runtime, the IIFE
+- If the Mock Host ever needs the Real SDK's enum _values_ at runtime, the IIFE
   denylist would flag it — reinforcing the ADR-0003 decision to use internal
   constants instead.

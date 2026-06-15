@@ -1,0 +1,132 @@
+<!doctype html>
+<!--
+  Manual playground for the Pipedrive App Extensions Mock Host.
+
+  This is a plain HTML page (no bundler) that loads the REAL SDK's UMD build and
+  our IIFE build as classic <script> tags — the vanilla-JS path the IIFE exists
+  for. The page is the App Extension; the Mock Host plays Pipedrive.
+
+  How to run (from the repo root):
+    npm run build                 # produce dist/index.global.js
+    npx http-server . -p 8080     # or: python3 -m http.server 8080
+    open http://localhost:8080/testing/
+
+  It must be a TOP-LEVEL page (not an iframe) so window.parent === window and the
+  Mock Host receives the SDK's messages.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mock Host playground</title>
+    <style>
+      body {
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+        max-width: 40rem;
+        margin: 3rem auto;
+        padding: 0 1rem;
+        color: #1a1a1a;
+      }
+      h1 {
+        font-size: 1.25rem;
+      }
+      button {
+        font: inherit;
+        padding: 0.5rem 1rem;
+        border: 1px solid #1a1a1a;
+        border-radius: 6px;
+        background: #fff;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #f2f2f2;
+      }
+      #status {
+        margin: 1rem 0;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        background: #f2f2f2;
+        font-family: ui-monospace, monospace;
+        font-size: 0.85rem;
+      }
+      label {
+        display: block;
+        margin: 1rem 0 0.25rem;
+        font-size: 0.85rem;
+      }
+      input {
+        font: inherit;
+        padding: 0.4rem 0.6rem;
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Pipedrive App Extensions — Mock Host playground</h1>
+    <p>
+      This page is an <strong>App Extension</strong>. It uses the real
+      <code>@pipedrive/app-extensions-sdk</code>, talking to the
+      <strong>Mock Host</strong> instead of Pipedrive.
+    </p>
+
+    <div id="status">initializing…</div>
+
+    <label for="message">Snackbar message</label>
+    <input id="message" value="Deal saved!" />
+    <button id="snackbar" disabled>Show snackbar</button>
+
+    <!-- Real SDK (UMD) → window.AppExtensionsSDK -->
+    <script src="../node_modules/@pipedrive/app-extensions-sdk/dist/index.umd.js"></script>
+    <!-- Mock Host (IIFE) → window.PipedriveMockHost -->
+    <script src="../dist/index.global.js"></script>
+
+    <script>
+      (async () => {
+        const statusEl = document.getElementById('status');
+        const buttonEl = document.getElementById('snackbar');
+        const messageEl = document.getElementById('message');
+
+        // The UMD global is either the class itself (enums hang off it) or a
+        // namespace whose `.default` is the class — normalize both. Enums are a
+        // property of the global in either case.
+        const SDKGlobal = window.AppExtensionsSDK;
+        const AppExtensionsSDK =
+          typeof SDKGlobal === 'function' ? SDKGlobal : SDKGlobal.default;
+        const { Command } = SDKGlobal;
+        const { startPipedriveMockHost } = window.PipedriveMockHost;
+
+        // 1. Start the Mock Host (it plays the Pipedrive window).
+        const host = startPipedriveMockHost();
+
+        // 2. Initialize the real SDK against it. Top-level page, so the SDK's
+        //    default target (window.parent === window) reaches the host.
+        const sdk = await new AppExtensionsSDK({
+          identifier: 'dev-local',
+        }).initialize();
+
+        statusEl.textContent = 'SDK initialized ✓  — click to show a snackbar';
+        buttonEl.disabled = false;
+
+        // 3. Drive a command. The Mock Host renders the snackbar.
+        buttonEl.addEventListener('click', async () => {
+          await sdk.execute(Command.SHOW_SNACKBAR, {
+            message: messageEl.value,
+          });
+          statusEl.textContent =
+            'commands sent: ' +
+            host
+              .getCalls()
+              .map((c) => c.command)
+              .join(', ');
+        });
+      })().catch((err) => {
+        document.getElementById('status').textContent = 'Error: ' + err.message;
+      });
+    </script>
+  </body>
+</html>
