@@ -4,6 +4,8 @@
     "target": "es2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    // tsup's .d.ts build injects the now-deprecated `baseUrl`; silence under TS 6.
+    "ignoreDeprecations": "6.0",
     "lib": ["es2022", "DOM", "DOM.Iterable"],
 
     /* Strictness */

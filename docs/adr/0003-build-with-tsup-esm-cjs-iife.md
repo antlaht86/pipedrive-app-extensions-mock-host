@@ -17,7 +17,7 @@ This supersedes the initial `tsc`, ESM-only scaffold.
 
 - The IIFE build cannot resolve the `@pipedrive/app-extensions-sdk`
   peerDependency at runtime. The Mock Host therefore must not depend on
-  importing the SDK's enum *values* at runtime in a way that breaks IIFE —
+  importing the SDK's enum _values_ at runtime in a way that breaks IIFE —
   either externalize the SDK as a global or keep internal copies of the wire
   constants (asserted equal to the SDK's enums by a test).
 - More build surface than `tsc`: a `tsup.config.ts` and three output bundles to

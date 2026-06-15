@@ -14,7 +14,7 @@ decisions.
 1. **Mock Host, not SDK replacement** (ADR-0001). Real SDK is a `peerDependency`;
    works because `window.parent === window` outside an iframe.
 2. **Public API = controller handle**: `startPipedriveMockHost(config?) =>
-   { teardown(), emit(event, data), getCalls() }`. Programmatic; no dev panel yet.
+{ teardown(), emit(event, data), getCalls() }`. Programmatic; no dev panel yet.
 3. **`GET_SIGNED_TOKEN`** = `config.getSignedToken?: () => string | Promise<string>`,
    default returns `'dev-signed-token'`. JWT-minting stays out of the package.
 4. **Interactive UI by default + config override** for response-producing
@@ -26,7 +26,7 @@ decisions.
    selector); `RESIZE` sizes it, `GET_METADATA` measures it; fallback
    `document.body`.
 7. **`CUSTOM_MODAL` content** = `config.customModals?: Record<actionId, url> |
-   ((attrs) => string | undefined)`; resolve URL → render iframe; fallback
+((attrs) => string | undefined)`; resolve URL → render iframe; fallback
    `data.url`; else placeholder.
 8. **Build with tsup → ESM + CJS + IIFE** (ADR-0003).
 9. **Visual style**: neutral, Pipedrive-flavoured, with a visible "MOCK" marker.
@@ -50,31 +50,31 @@ Messages arrive on `window` as `{ payload, id }` where
 
 ### Lifecycle / construction (host's responsibilities)
 
-| SDK feature | Mock Host behaviour |
-| --- | --- |
-| `new AppExtensionsSDK({ identifier })` | Host not involved; consumer passes `{ identifier: 'dev-local' }`. |
-| `targetWindow` default `window.parent` | Host listens on `window` (=== parent on localhost). |
-| `.initialize({ size? })` (awaits reply) | **Must** reply to `INITIALIZE` or init hangs forever. Applies initial `size` to the Surface. |
-| `.execute / .listen / .track / .setWindow` | Handled per message `type` above. |
-| `.userSettings.theme` | Reflected by host theme; `USER_SETTINGS_CHANGE` updates it. |
+| SDK feature                                | Mock Host behaviour                                                                          |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `new AppExtensionsSDK({ identifier })`     | Host not involved; consumer passes `{ identifier: 'dev-local' }`.                            |
+| `targetWindow` default `window.parent`     | Host listens on `window` (=== parent on localhost).                                          |
+| `.initialize({ size? })` (awaits reply)    | **Must** reply to `INITIALIZE` or init hangs forever. Applies initial `size` to the Surface. |
+| `.execute / .listen / .track / .setWindow` | Handled per message `type` above.                                                            |
+| `.userSettings.theme`                      | Reflected by host theme; `USER_SETTINGS_CHANGE` updates it.                                  |
 
 ### Commands — all 13
 
-| Command | args → response | Mock Host |
-| --- | --- | --- |
-| `INITIALIZE` | `{size?}` → void | Reply immediately (handshake); apply size to Surface. |
-| `SHOW_SNACKBAR` | `{message, link?}` → void | Render snackbar (message + optional link), auto-dismiss. |
-| `SHOW_CONFIRMATION` | `{title, description?, okText?, cancelText?, okColor?}` → `{confirmed}` | Render dialog, resolve on click; `config.onConfirmation` overrides. |
-| `RESIZE` | `{width?, height?}` → void | Set `surface.style.width/height`. |
-| `OPEN_MODAL` | `ModalAttributes` → `{status, id?}` | Render modal (6 types below); resolve on close/submit; `config.onModal` overrides. |
-| `CLOSE_MODAL` | void → void | Close the open modal. |
-| `GET_SIGNED_TOKEN` | void → `{token}` | `config.getSignedToken?.() ?? 'dev-signed-token'`. |
-| `REDIRECT_TO` | `{view, id?, context?}` → void | Transient banner "would redirect to {view}"; record. |
-| `SHOW_FLOATING_WINDOW` | `{context?}` → void | Show floating box; record. |
-| `HIDE_FLOATING_WINDOW` | `{context?}` → void | Hide floating box; record. |
-| `SET_NOTIFICATION` | `{number?}` → void | Show badge count; record. |
-| `SET_FOCUS_MODE` | `boolean` → void | Toggle focus-mode overlay/class; record. |
-| `GET_METADATA` | void → `{windowHeight, windowWidth}` | Measure the Surface. |
+| Command                | args → response                                                         | Mock Host                                                                          |
+| ---------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `INITIALIZE`           | `{size?}` → void                                                        | Reply immediately (handshake); apply size to Surface.                              |
+| `SHOW_SNACKBAR`        | `{message, link?}` → void                                               | Render snackbar (message + optional link), auto-dismiss.                           |
+| `SHOW_CONFIRMATION`    | `{title, description?, okText?, cancelText?, okColor?}` → `{confirmed}` | Render dialog, resolve on click; `config.onConfirmation` overrides.                |
+| `RESIZE`               | `{width?, height?}` → void                                              | Set `surface.style.width/height`.                                                  |
+| `OPEN_MODAL`           | `ModalAttributes` → `{status, id?}`                                     | Render modal (6 types below); resolve on close/submit; `config.onModal` overrides. |
+| `CLOSE_MODAL`          | void → void                                                             | Close the open modal.                                                              |
+| `GET_SIGNED_TOKEN`     | void → `{token}`                                                        | `config.getSignedToken?.() ?? 'dev-signed-token'`.                                 |
+| `REDIRECT_TO`          | `{view, id?, context?}` → void                                          | Transient banner "would redirect to {view}"; record.                               |
+| `SHOW_FLOATING_WINDOW` | `{context?}` → void                                                     | Show floating box; record.                                                         |
+| `HIDE_FLOATING_WINDOW` | `{context?}` → void                                                     | Hide floating box; record.                                                         |
+| `SET_NOTIFICATION`     | `{number?}` → void                                                      | Show badge count; record.                                                          |
+| `SET_FOCUS_MODE`       | `boolean` → void                                                        | Toggle focus-mode overlay/class; record.                                           |
+| `GET_METADATA`         | void → `{windowHeight, windowWidth}`                                    | Measure the Surface.                                                               |
 
 **`OPEN_MODAL` — all 6 modal types.** `DEAL` (`prefill:{title,person,organization}`),
 `PERSON` (`{name,organization}`), `ORGANIZATION` (`{name}`), `ACTIVITY`
@@ -87,17 +87,17 @@ Custom modal → iframe to the resolved URL (decision 7); on close fire
 
 ### Events — all 4 (host pushes to the App Extension via `emit`)
 
-| Event | data | Trigger in dev |
-| --- | --- | --- |
-| `VISIBILITY` | `{is_visible, context?:{invoker: USER\|COMMAND}}` | `host.emit(...)` only (no natural localhost trigger). |
-| `CLOSE_CUSTOM_MODAL` | void | Fired automatically when a custom modal closes; also via `emit`. |
-| `PAGE_VISIBILITY_STATE` | `{state: visible\|hidden}` | **Not host-driven** — Real SDK listens to `document.visibilitychange` itself. Triggered by actually hiding the tab. |
-| `USER_SETTINGS_CHANGE` | `{theme}` | `host.emit(...)`; updates `sdk.userSettings`. |
+| Event                   | data                                              | Trigger in dev                                                                                                      |
+| ----------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `VISIBILITY`            | `{is_visible, context?:{invoker: USER\|COMMAND}}` | `host.emit(...)` only (no natural localhost trigger).                                                               |
+| `CLOSE_CUSTOM_MODAL`    | void                                              | Fired automatically when a custom modal closes; also via `emit`.                                                    |
+| `PAGE_VISIBILITY_STATE` | `{state: visible\|hidden}`                        | **Not host-driven** — Real SDK listens to `document.visibilitychange` itself. Triggered by actually hiding the tab. |
+| `USER_SETTINGS_CHANGE`  | `{theme}`                                         | `host.emit(...)`; updates `sdk.userSettings`.                                                                       |
 
 ### Track — all 1
 
-| Event | Mock Host |
-| --- | --- |
+| Event     | Mock Host                                                                               |
+| --------- | --------------------------------------------------------------------------------------- |
 | `FOCUSED` | Real SDK emits on window focus; host receives, does not reply, records in `getCalls()`. |
 
 ### Enums to mirror / re-export
@@ -131,7 +131,7 @@ interface MockHostConfig {
 
 ## Follow-up: scaffold changes implied by these decisions
 
-The current scaffold assumed an SDK *replacement*; align it:
+The current scaffold assumed an SDK _replacement_; align it:
 
 - `package.json`: rename to `pipedrive-app-extensions-mock-host`; move
   `@pipedrive/app-extensions-sdk` to `peerDependencies` (`>=0.16.0`) and keep a
@@ -139,4 +139,7 @@ The current scaffold assumed an SDK *replacement*; align it:
 - Rewrite `README.md` around the Mock Host usage (real SDK + `startPipedriveMockHost`).
 - Resolve the wire-constants question (ADR-0003 consequence): internal constants
   asserted equal to the Real SDK enums, vs importing — to keep the IIFE build clean.
+
+```
+
 ```

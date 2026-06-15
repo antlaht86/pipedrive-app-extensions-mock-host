@@ -1,74 +1,98 @@
-# pipedrive-app-extensions-sdk-mock
+# pipedrive-app-extensions-mock-host
 
-A framework-agnostic mock of the [Pipedrive App Extensions SDK](https://github.com/pipedrive/app-extensions-sdk)
+A development-only **mock host** for the
+[Pipedrive App Extensions SDK](https://github.com/pipedrive/app-extensions-sdk)
 (`@pipedrive/app-extensions-sdk`).
 
-The real SDK posts messages to the Pipedrive host window, so your app
-extension only does anything visible when it runs embedded inside Pipedrive.
-This mock **acts as the host itself** and renders real UI elements (snackbars,
-confirmation dialogs, modals, …) directly into the page — so you can develop
-and test an app extension locally, in any framework or in plain vanilla JS.
+In production your app extension runs inside a Pipedrive iframe, and the SDK
+posts messages to the Pipedrive window (`window.parent`). On `localhost` there is
+no Pipedrive on the other end, so the SDK has nobody to talk to. This package
+**plays that missing window**: it listens for the SDK's messages and answers
+them, rendering real UI elements (snackbars, confirmations, modals, …) into your
+page. It is framework-agnostic — works with any framework or plain vanilla JS.
 
-> **Status:** early scaffolding. The public API surface is being built out
-> incrementally to mirror `@pipedrive/app-extensions-sdk` v0.16.0.
+It does **not** replace the SDK. You keep using the real
+`@pipedrive/app-extensions-sdk`; this is the host it connects to. See
+[`docs/adr/0001`](./docs/adr/0001-mock-host-not-sdk-replacement.md).
+
+> **Status:** infrastructure and design complete; the host implementation is
+> being built next. See [`docs/plans`](./docs/plans/) and
+> [`CONTEXT.md`](./CONTEXT.md).
+
+## Requirements
+
+- The real `@pipedrive/app-extensions-sdk` installed (it is a `peerDependency`).
+- Your app must **not** run inside an iframe in dev, so that
+  `window.parent === window` and the Mock Host can listen on the same window.
 
 ## Install
 
 ```bash
-npm install --save-dev pipedrive-app-extensions-sdk-mock
+npm install --save-dev pipedrive-app-extensions-mock-host
 ```
 
-## Usage
-
-The mock mirrors the real SDK's import shape, so it can be swapped in during
-local development:
+## Usage (target API)
 
 ```ts
-import AppExtensionsSDK, { Command } from 'pipedrive-app-extensions-sdk-mock';
+import { startPipedriveMockHost } from 'pipedrive-app-extensions-mock-host';
+import AppExtensionsSDK, { Command } from '@pipedrive/app-extensions-sdk';
 
-const sdk = await new AppExtensionsSDK({ identifier: 'dev' }).initialize();
+// Start the host only in development.
+const host = import.meta.env.DEV ? startPipedriveMockHost() : undefined;
 
-await sdk.execute(Command.SHOW_SNACKBAR, { message: 'Hello from the mock!' });
+// The real SDK, pointed at the mock host (no iframe → identifier must be given).
+const sdk = await new AppExtensionsSDK(
+  import.meta.env.DEV ? { identifier: 'dev-local' } : undefined,
+).initialize();
+
+await sdk.execute(Command.SHOW_SNACKBAR, {
+  message: 'Hello from the mock host!',
+});
+
+// Later, when tearing down dev tooling:
+host?.teardown();
 ```
 
-(The example above reflects the target API; see the status note above for what
-is implemented today.)
+The host returns a controller: `{ teardown(), emit(event, data), getCalls() }`.
+`emit` pushes host-driven events (e.g. `USER_SETTINGS_CHANGE`, `VISIBILITY`) to
+the SDK; `getCalls` lists the commands the app sent (useful in tests).
+
+In a plain HTML page, load the SDK's UMD build and this package's IIFE build
+(`window.PipedriveMockHost`) side by side — no bundler required.
 
 ## Development
 
 ```bash
-npm install         # install dependencies
-npm run dev         # run tests in watch mode (vitest)
-npm test            # run all tests once (unit + browser)
-npm run test:unit   # fast logic/DOM tests only (jsdom)
-npm run test:browser # UI component tests only (real Chromium)
-npm run build       # type-check and emit dist/ with declarations
-npm run ci          # build + check formatting + test (what CI runs)
+npm install          # install dependencies
+npm run dev          # run tests in watch mode (vitest)
+npm test             # run all tests once (unit + browser)
+npm run test:unit    # fast logic/DOM tests only (jsdom)
+npm run test:browser # UI tests in real Chromium (Vitest Browser Mode)
+npm run build        # bundle ESM + CJS + IIFE with tsup, emit declarations
+npm run ci           # build + typecheck + check formatting + test (what CI runs)
 ```
 
 ### Testing strategy
 
-Tests run on [Vitest](https://vitest.dev) across two projects:
+Two Vitest projects (see [`vitest.config.ts`](./vitest.config.ts)):
 
-- **`unit`** — fast tests in **jsdom** for logic and DOM structure. Files:
-  `src/**/*.test.ts`.
-- **`browser`** — UI component tests in a **real browser** (Chromium via
-  [Vitest Browser Mode](https://vitest.dev/guide/browser/) + Playwright), so
-  layout, focus management, `z-index`, CSS and real events are exercised
-  truthfully — things jsdom cannot model. Files: `src/**/*.browser.test.ts`.
+- **`unit`** — fast tests in **jsdom** for host logic and DOM structure
+  (`src/**/*.test.ts`). jsdom does not transfer `MessagePort`s through
+  `postMessage`, so these tests simulate the wire protocol directly.
+- **`browser`** — UI and real-SDK integration tests in **Chromium** via
+  [Vitest Browser Mode](https://vitest.dev/guide/browser/) + Playwright
+  (`src/**/*.browser.test.ts`), where port transfer works. UI is queried via the
+  open Shadow DOM root (`within(host.shadowRoot)`).
 
-Both use [Testing Library](https://testing-library.com)
-(`@testing-library/dom` + `user-event`) and `@testing-library/jest-dom`
-matchers, so the same query/assertion style works in either project. Running
-the browser project locally requires the Chromium binary
-(`npx playwright install chromium`).
+Both use [Testing Library](https://testing-library.com) and
+`@testing-library/jest-dom`.
 
 ### Releasing
 
-This package uses [Changesets](https://github.com/changesets/changesets).
+[Changesets](https://github.com/changesets/changesets):
 
 ```bash
-npx changeset        # describe your change
+npx changeset         # describe your change
 npm run local-release # version + publish to npm
 ```
 
