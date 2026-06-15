@@ -39,11 +39,33 @@ A fire-and-forget message the App Extension sends with no reply (e.g.
 _Avoid_: analytics, log event.
 
 **Surface**:
-The element that stands in for the Pipedrive panel/iframe the App Extension
-would normally live in. `RESIZE` sizes it and `GET_METADATA` measures it. The
-consumer designates one (element or selector); absent that, it is the document
-body.
-_Avoid_: container, wrapper (use Surface), panel, iframe.
+The element that stands in for the place in Pipedrive where the App Extension
+renders. `RESIZE` sizes it and `GET_METADATA` measures it. A Surface has a
+concrete **type** — Custom Panel, Custom Modal, or Floating Window — each a
+different location with its own size rules and behaviour.
+_Avoid_: container, wrapper (use Surface or a specific type).
+
+**Custom Panel**:
+The Surface type that lives in the left sidebar of a deal/person/organization
+detail view — the App Extension's default home. Fixed width (~385px); only its
+height changes, clamped to 100–750px (`RESIZE` ignores width).
+_Avoid_: panel wrapper, sidebar.
+
+**Custom Modal**:
+The Surface type opened on demand over the page via `OPEN_MODAL` (type
+`custom_modal`); centred and dismissable, min 120px tall / 320px wide, growing
+up to the browser size. A distinct location from the Custom Panel — opening one
+does not move the App Extension out of its panel.
+
+**Floating Window**:
+The Surface type toggled via `SHOW_FLOATING_WINDOW` / `HIDE_FLOATING_WINDOW`; a
+small persistent window (e.g. for call controls), 70–700px tall and 200–800px
+wide, independent of the panel.
+
+**Snackbar**:
+A transient message shown by `SHOW_SNACKBAR`. It is **not** a Surface — it
+appears at the browser's bottom-right corner, outside every Surface, and never
+nests inside the panel/modal/floating window.
 
 ## Example dialogue
 
