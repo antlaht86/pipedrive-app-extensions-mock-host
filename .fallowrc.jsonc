@@ -7,6 +7,9 @@
   // fallow would otherwise report it as an unused devDependency.
   "ignoreDependencies": ["@pipedrive/app-extensions-sdk"],
 
+  // Manual playgrounds — not part of the package, no need to analyze them.
+  "ignorePatterns": ["testing/**"],
+
   "audit": {
     // The Claude Code commit/push gate hook runs `fallow audit`. Gate only on
     // issues this changeset introduces, not pre-existing ones.
