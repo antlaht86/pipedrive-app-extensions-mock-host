@@ -85,10 +85,9 @@ test('an unimplemented command resolves to an object, not undefined', async () =
   host = startPipedriveMockHost();
   const sdk = await createSdk();
 
-  // GET_SIGNED_TOKEN is not implemented yet. Its result must be an object so
-  // that consumer code destructuring it (e.g. `const { token } = ...`) does not
-  // throw on `undefined`.
-  const result = await sdk.execute(Command.GET_SIGNED_TOKEN);
+  // CLOSE_MODAL is not implemented yet. Its result must be an object so that
+  // consumer code destructuring it does not throw on `undefined`.
+  const result = await sdk.execute(Command.CLOSE_MODAL);
 
   expect(result).toEqual({});
 });
@@ -99,6 +98,48 @@ test('starting twice without teardown reuses the single host', () => {
   startPipedriveMockHost();
 
   expect(document.querySelectorAll('pipedrive-mock-host')).toHaveLength(1);
+});
+
+test('GET_SIGNED_TOKEN returns a default dev token', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  const result = await sdk.execute(Command.GET_SIGNED_TOKEN);
+
+  expect(result).toEqual({ token: 'dev-signed-token' });
+});
+
+test('GET_SIGNED_TOKEN uses config.getSignedToken when provided', async () => {
+  host = startPipedriveMockHost({ getSignedToken: () => 'my-dev-jwt' });
+  const sdk = await createSdk();
+
+  const result = await sdk.execute(Command.GET_SIGNED_TOKEN);
+
+  expect(result).toEqual({ token: 'my-dev-jwt' });
+});
+
+test('GET_SIGNED_TOKEN awaits an async getSignedToken', async () => {
+  host = startPipedriveMockHost({
+    getSignedToken: () => Promise.resolve('async-jwt'),
+  });
+  const sdk = await createSdk();
+
+  const result = await sdk.execute(Command.GET_SIGNED_TOKEN);
+
+  expect(result).toEqual({ token: 'async-jwt' });
+});
+
+test('GET_SIGNED_TOKEN falls back to the default token when getSignedToken throws', async () => {
+  host = startPipedriveMockHost({
+    getSignedToken: () => {
+      throw new Error('boom');
+    },
+  });
+  const sdk = await createSdk();
+
+  const result = await sdk.execute(Command.GET_SIGNED_TOKEN);
+
+  expect(result).toEqual({ token: 'dev-signed-token' });
 });
 
 test('SHOW_CONFIRMATION resolves via config.onConfirmation without UI', async () => {

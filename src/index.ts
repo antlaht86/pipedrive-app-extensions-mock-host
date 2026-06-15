@@ -33,6 +33,11 @@ export interface MockHostConfig {
    * confirmed. When omitted, an interactive dialog is rendered instead.
    */
   onConfirmation?: (args: ConfirmationArgs) => boolean | Promise<boolean>;
+  /**
+   * Provides the token returned by `GET_SIGNED_TOKEN`. Return a real (dev) JWT
+   * to exercise your backend's verify path. Defaults to `'dev-signed-token'`.
+   */
+  getSignedToken?: () => string | Promise<string>;
 }
 
 /** A single command the App Extension sent, captured for inspection in tests. */
@@ -61,6 +66,10 @@ const COMMAND_SHOW_SNACKBAR = 'show_snackbar';
 const COMMAND_SHOW_CONFIRMATION = 'show_confirmation';
 const COMMAND_RESIZE = 'resize';
 const COMMAND_GET_METADATA = 'get_metadata';
+const COMMAND_GET_SIGNED_TOKEN = 'get_signed_token';
+
+/** Returned by GET_SIGNED_TOKEN when the consumer provides no override. */
+const DEFAULT_SIGNED_TOKEN = 'dev-signed-token';
 
 // Scoped to the shadow root — a calm, grey, clearly-a-mock surface. The palette
 // lives in CSS custom properties on :host so themes can override it later.
@@ -437,6 +446,20 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
           surface.style.height = `${height}px`;
         }
         reply();
+        break;
+      }
+      case COMMAND_GET_SIGNED_TOKEN: {
+        void (async () => {
+          try {
+            const token = config.getSignedToken
+              ? await config.getSignedToken()
+              : DEFAULT_SIGNED_TOKEN;
+            reply({ token });
+          } catch {
+            // Never hang the caller: fall back to the default dev token.
+            reply({ token: DEFAULT_SIGNED_TOKEN });
+          }
+        })();
         break;
       }
       case COMMAND_GET_METADATA: {
