@@ -695,6 +695,39 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   const resolveSurface = (): HTMLElement =>
     document.querySelector<HTMLElement>(SURFACE_SELECTOR) ?? document.body;
 
+  // Apply a size to the current surface, clamping each dimension to the surface
+  // type's bounds. Shared by RESIZE and the initial size from initialize().
+  const applySize = (size?: { width?: number; height?: number }): void => {
+    if (!size) {
+      return;
+    }
+    const surface = resolveSurface();
+    const type = Object.keys(SURFACE_BOUNDS).find((cls) =>
+      surface.classList.contains(cls),
+    );
+    const bounds = type ? SURFACE_BOUNDS[type] : undefined;
+    if (size.width != null) {
+      surface.style.width = `${
+        bounds
+          ? clampToRange(size.width, [
+              bounds.width[0],
+              resolveMax(bounds.width[1], window.innerWidth),
+            ])
+          : size.width
+      }px`;
+    }
+    if (size.height != null) {
+      surface.style.height = `${
+        bounds
+          ? clampToRange(size.height, [
+              bounds.height[0],
+              resolveMax(bounds.height[1], window.innerHeight),
+            ])
+          : size.height
+      }px`;
+    }
+  };
+
   const onMessage = (event: MessageEvent): void => {
     const data = event.data as
       | {
@@ -739,9 +772,15 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     calls.push({ command: payload.command, args: payload.args });
 
     switch (payload.command) {
-      case COMMAND_INITIALIZE:
+      case COMMAND_INITIALIZE: {
+        // The handshake may carry an initial size; apply it to the surface.
+        const args = payload.args as
+          | { size?: { width?: number; height?: number } }
+          | undefined;
+        applySize(args?.size);
         reply();
         break;
+      }
       case COMMAND_SHOW_SNACKBAR: {
         const args = payload.args as
           | { message?: string; link?: { url: string; label: string } }
@@ -770,35 +809,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         break;
       }
       case COMMAND_RESIZE: {
-        const args = payload.args as
-          | { width?: number; height?: number }
-          | undefined;
-        const surface = resolveSurface();
-        // Clamp each requested dimension to the surface type's bounds. A panel's
-        // width is fixed (min === max), so a width request resolves back to 385.
-        // Untyped surfaces (document.body fallback) resize freely.
-        const type = Object.keys(SURFACE_BOUNDS).find((cls) =>
-          surface.classList.contains(cls),
-        );
-        const bounds = type ? SURFACE_BOUNDS[type] : undefined;
-        if (args?.width != null) {
-          const width = bounds
-            ? clampToRange(args.width, [
-                bounds.width[0],
-                resolveMax(bounds.width[1], window.innerWidth),
-              ])
-            : args.width;
-          surface.style.width = `${width}px`;
-        }
-        if (args?.height != null) {
-          const height = bounds
-            ? clampToRange(args.height, [
-                bounds.height[0],
-                resolveMax(bounds.height[1], window.innerHeight),
-              ])
-            : args.height;
-          surface.style.height = `${height}px`;
-        }
+        applySize(payload.args as { width?: number; height?: number });
         reply();
         break;
       }

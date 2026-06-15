@@ -16,7 +16,9 @@ const AppExtensionsSDK = (
     ? defaultExport
     : (defaultExport as { default: unknown }).default
 ) as new (options?: { identifier?: string; targetWindow?: Window }) => {
-  initialize(): Promise<{
+  initialize(initOptions?: {
+    size?: { width?: number; height?: number };
+  }): Promise<{
     execute: (...args: unknown[]) => Promise<unknown>;
     listen: (
       event: string,
@@ -686,4 +688,30 @@ test('a disabled host does not listen for or reply to SDK commands', async () =>
 
   expect(replied).toBe(false); // no listener registered → no reply
   expect(document.querySelector('pipedrive-mock-host')).toBeNull(); // no UI
+});
+
+// Initial size from .initialize({ size }) (see design plan / ADR-0006).
+
+test('initialize({ size }) applies the initial height to the panel surface', async () => {
+  host = startPipedriveMockHost();
+  const panel = renderSurface('pd-mock-panel');
+
+  await new AppExtensionsSDK({
+    identifier: 'dev-local',
+    targetWindow: window,
+  }).initialize({ size: { height: 500 } });
+
+  expect(panel.offsetHeight).toBe(500);
+});
+
+test('initialize({ size }) applies width and height to a floating window', async () => {
+  host = startPipedriveMockHost();
+  const fw = renderSurface('pd-mock-floating-window');
+
+  await new AppExtensionsSDK({
+    identifier: 'dev-local',
+    targetWindow: window,
+  }).initialize({ size: { width: 500, height: 300 } });
+
+  expect([fw.offsetWidth, fw.offsetHeight]).toEqual([500, 300]);
 });
