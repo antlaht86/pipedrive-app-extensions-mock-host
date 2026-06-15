@@ -113,7 +113,10 @@
           logEl.textContent = `${msg}\n${logEl.textContent}`.slice(0, 2000);
         };
 
+        // Try ?theme=dark to see the dark host UI.
+        const theme = new URLSearchParams(location.search).get('theme');
         const { sdk, Command, Event, host } = await window.bootMockHost({
+          theme: theme === 'dark' ? 'dark' : 'light',
           customModals: {
             'demo-modal':
               'data:text/html,<body style=font-family:system-ui><h3>Custom modal content</h3><p>Loaded in an iframe by the Mock Host.</p></body>',

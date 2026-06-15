@@ -613,3 +613,30 @@ test('the host records the FOCUSED track the SDK sends on focus', async () => {
 
   expect(host.getCalls().some((c) => c.command === 'focused')).toBe(true);
 });
+
+// Theme (config.theme) and document-driven page visibility.
+
+test('config.theme "dark" gives the snackbar a dark background', async () => {
+  host = startPipedriveMockHost({ theme: 'dark' });
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.SHOW_SNACKBAR, { message: 'Hi' });
+
+  const bar = (host.shadowRoot as ShadowRoot).querySelector(
+    '.pd-mock-snackbar',
+  ) as HTMLElement;
+  expect(getComputedStyle(bar).backgroundColor).toBe('rgb(43, 47, 54)');
+});
+
+test('PAGE_VISIBILITY_STATE delivers the document visibility (SDK-driven)', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+  const received: Array<{ data?: unknown }> = [];
+
+  sdk.listen(Event.PAGE_VISIBILITY_STATE, (r) => received.push(r));
+  // SDK listens to document 'visibilitychange' itself (not via the host).
+  document.dispatchEvent(new CustomEvent('visibilitychange'));
+  await tick();
+
+  expect(received[0]).toEqual({ data: { state: document.visibilityState } });
+});

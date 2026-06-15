@@ -42,6 +42,8 @@ export interface ModalResult {
 
 /** Configuration for the Mock Host. Fields land incrementally; see the design. */
 export interface MockHostConfig {
+  /** Visual theme for the host's own mock UI. Defaults to `'light'`. */
+  theme?: 'light' | 'dark';
   /**
    * Headless override for `SHOW_CONFIRMATION`: return whether the user
    * confirmed. When omitted, an interactive dialog is rendered instead.
@@ -132,6 +134,12 @@ const SNACKBAR_STYLES = `
     --pd-mock-badge-fg: #f4f5f6;
     --pd-mock-link: #2563eb;
     --pd-mock-shadow: 0 6px 20px rgba(20, 24, 31, 0.18);
+  }
+  :host([data-theme='dark']) {
+    --pd-mock-bg: #2b2f36;
+    --pd-mock-fg: #eef1f4;
+    --pd-mock-border: #3a4047;
+    --pd-mock-link: #8ab4ff;
   }
   .pd-mock-layer {
     position: fixed;
@@ -396,6 +404,8 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   };
 
   const hostEl = document.createElement('pipedrive-mock-host');
+  // Theme drives the shadow-root CSS custom properties (default light).
+  hostEl.setAttribute('data-theme', config.theme === 'dark' ? 'dark' : 'light');
   const shadowRoot = hostEl.attachShadow({ mode: 'open' });
   document.body.appendChild(hostEl);
 
