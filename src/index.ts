@@ -42,6 +42,12 @@ export interface ModalResult {
 
 /** Configuration for the Mock Host. Fields land incrementally; see the design. */
 export interface MockHostConfig {
+  /**
+   * Turn the host off without removing the call (e.g. pass a dev flag:
+   * `{ enabled: import.meta.env.DEV }`). When `false`, returns an inert handle.
+   * Defaults to `true`.
+   */
+  enabled?: boolean;
   /** Visual theme for the host's own mock UI. Defaults to `'light'`. */
   theme?: 'light' | 'dark';
   /**
@@ -370,6 +376,18 @@ const NOOP_HOST: MockHost = {
 /** The currently running host, if any — used to prevent duplicate instances. */
 let activeHost: MockHost | null = null;
 
+// Read NODE_ENV off globalThis (no Node types needed) via bracket access, which
+// avoids static `process.env.NODE_ENV` inlining and stays stubbable in tests.
+// Absent `process` (pure browser / IIFE) → not production.
+const isProductionEnv = (): boolean => {
+  const proc = (
+    globalThis as {
+      process?: { env?: Record<string, string | undefined> };
+    }
+  ).process;
+  return proc?.env?.['NODE_ENV'] === 'production';
+};
+
 /**
  * Start the Mock Host: listen for the SDK's messages on `window` and answer
  * them. Returns a handle to inspect, drive and tear down the host.
@@ -377,6 +395,23 @@ let activeHost: MockHost | null = null;
 export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // SSR-safe: with no window (e.g. Next.js server render) return an inert handle.
   if (typeof window === 'undefined') {
+    return NOOP_HOST;
+  }
+
+  // Explicit off-switch (e.g. { enabled: import.meta.env.DEV }).
+  if (config.enabled === false) {
+    return NOOP_HOST;
+  }
+
+  // Production tripwire: this is a dev-only tool. Stay inert and warn loudly so
+  // an accidentally-shipped call is caught. Gate the call behind a build-time
+  // dev flag to drop it from the bundle entirely (see ADR-0007).
+  if (isProductionEnv()) {
+    console.warn(
+      '[pipedrive-mock-host] startPipedriveMockHost() was called with ' +
+        'NODE_ENV=production. The mock host is development-only; it will not ' +
+        'start. Gate the call behind a dev flag (e.g. { enabled: isDev }).',
+    );
     return NOOP_HOST;
   }
 

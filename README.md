@@ -64,6 +64,27 @@ the SDK; `getCalls` lists the commands the app sent (useful in tests).
 In a plain HTML page, load the SDK's UMD build and this package's IIFE build
 (`window.PipedriveMockHost`) side by side — no bundler required.
 
+## Keeping it out of production
+
+This is a **development-only** tool. Layered defence (see
+[`docs/adr/0007`](./docs/adr/0007-keeping-the-mock-host-out-of-production.md))
+keeps it out of your production build:
+
+1. **Install it as a `devDependency`** (`npm install --save-dev …`).
+2. **Gate the call behind a build-time dev flag.** The package is
+   `sideEffects: false` with no runtime dependencies, so a dead-branch call is
+   tree-shaken out of your production bundle entirely:
+
+   ```ts
+   if (import.meta.env.DEV) startPipedriveMockHost();
+   // or pass the flag and let the host disable itself:
+   startPipedriveMockHost({ enabled: import.meta.env.DEV });
+   ```
+
+3. **Safety net.** If it is ever started with `NODE_ENV=production`, it stays
+   inert and logs a warning instead of running. `{ enabled: false }` also
+   returns an inert handle (no warning) for an explicit off-switch.
+
 ## Development
 
 ```bash
