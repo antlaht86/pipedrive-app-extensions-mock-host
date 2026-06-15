@@ -74,11 +74,25 @@
       <strong>Mock Host</strong> instead of Pipedrive.
     </p>
 
-    <div id="status">initializing…</div>
+    <p>
+      The app below lives inside a
+      <code>&lt;div class="pd-mock-panel"&gt;</code>. The Mock Host styles it as
+      a real Custom Panel: fixed 385px wide, height clamped to 100–750px.
+    </p>
 
-    <label for="message">Snackbar message</label>
-    <input id="message" value="Deal saved!" />
-    <button id="snackbar" disabled>Show snackbar</button>
+    <div class="pd-mock-panel" id="panel" style="padding: 14px">
+      <div id="status">initializing…</div>
+
+      <label for="message">Snackbar message</label>
+      <input id="message" value="Deal saved!" />
+      <button id="snackbar" disabled>Show snackbar</button>
+
+      <label for="height"
+        >Panel height (px) — try 40 or 900 to see clamping</label
+      >
+      <input id="height" type="number" value="300" />
+      <button id="resize" disabled>Resize panel</button>
+    </div>
 
     <!-- Real SDK (UMD) → window.AppExtensionsSDK -->
     <script src="../node_modules/@pipedrive/app-extensions-sdk/dist/index.umd.js"></script>
@@ -90,6 +104,8 @@
         const statusEl = document.getElementById('status');
         const buttonEl = document.getElementById('snackbar');
         const messageEl = document.getElementById('message');
+        const heightEl = document.getElementById('height');
+        const resizeEl = document.getElementById('resize');
 
         // The UMD global is either the class itself (enums hang off it) or a
         // namespace whose `.default` is the class — normalize both. Enums are a
@@ -109,20 +125,26 @@
           identifier: 'dev-local',
         }).initialize();
 
-        statusEl.textContent = 'SDK initialized ✓  — click to show a snackbar';
+        statusEl.textContent = 'SDK initialized ✓';
         buttonEl.disabled = false;
+        resizeEl.disabled = false;
 
-        // 3. Drive a command. The Mock Host renders the snackbar.
+        // Size the panel to fit its content on load.
+        await sdk.execute(Command.RESIZE, { height: Number(heightEl.value) });
+
+        // 3. Drive commands. The Mock Host renders the snackbar / resizes panel.
         buttonEl.addEventListener('click', async () => {
           await sdk.execute(Command.SHOW_SNACKBAR, {
             message: messageEl.value,
           });
-          statusEl.textContent =
-            'commands sent: ' +
-            host
-              .getCalls()
-              .map((c) => c.command)
-              .join(', ');
+        });
+
+        resizeEl.addEventListener('click', async () => {
+          await sdk.execute(Command.RESIZE, {
+            height: Number(heightEl.value),
+          });
+          const meta = await sdk.execute(Command.GET_METADATA);
+          statusEl.textContent = `GET_METADATA → ${meta.windowWidth}×${meta.windowHeight}px (clamped 100–750)`;
         });
       })().catch((err) => {
         document.getElementById('status').textContent = 'Error: ' + err.message;

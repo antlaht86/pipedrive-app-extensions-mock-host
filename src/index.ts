@@ -46,6 +46,8 @@ export interface MockHost {
 const MESSAGE_TYPE_COMMAND = 'command';
 const COMMAND_INITIALIZE = 'initialize';
 const COMMAND_SHOW_SNACKBAR = 'show_snackbar';
+const COMMAND_RESIZE = 'resize';
+const COMMAND_GET_METADATA = 'get_metadata';
 
 // Scoped to the shadow root — a calm, grey, clearly-a-mock surface. The palette
 // lives in CSS custom properties on :host so themes can override it later.
@@ -118,6 +120,21 @@ const SNACKBAR_STYLES = `
   }
 `;
 
+// Injected into document.head (light DOM) — styles the consumer's wrapper div as
+// a Custom Panel surface. Fixed width and the panel's height bounds (ADR-0005).
+const SURFACE_STYLES = `
+  .pd-mock-panel {
+    box-sizing: border-box;
+    width: 385px;
+    height: 100px;
+    overflow: auto;
+    background: #fff;
+    border: 1px solid #e3e6ea;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(20, 24, 31, 0.08);
+  }
+`;
+
 /** Inert handle returned when there is no DOM (e.g. SSR). */
 const NOOP_HOST: MockHost = {
   get shadowRoot(): ShadowRoot {
@@ -145,6 +162,13 @@ export function startPipedriveMockHost(_config?: MockHostConfig): MockHost {
   const hostEl = document.createElement('pipedrive-mock-host');
   const shadowRoot = hostEl.attachShadow({ mode: 'open' });
   document.body.appendChild(hostEl);
+
+  // Surface-wrapper styles live in the light DOM, since they target the
+  // consumer's own element (e.g. <div class="pd-mock-panel">).
+  const surfaceStyleEl = document.createElement('style');
+  surfaceStyleEl.setAttribute('data-pd-mock', 'surface-styles');
+  surfaceStyleEl.textContent = SURFACE_STYLES;
+  document.head.appendChild(surfaceStyleEl);
 
   // The snackbar layer is created lazily on first use; styles live in the shadow
   // root so consumer CSS cannot reach them (and vice versa).
@@ -196,6 +220,11 @@ export function startPipedriveMockHost(_config?: MockHostConfig): MockHost {
     window.setTimeout(() => bar.remove(), 5000);
   };
 
+  // Where the App Extension renders. Auto-detect the panel wrapper; fall back to
+  // the document body (config.surface override is a later slice).
+  const resolveSurface = (): HTMLElement =>
+    document.querySelector<HTMLElement>('.pd-mock-panel') ?? document.body;
+
   const onMessage = (event: MessageEvent): void => {
     const data = event.data as
       | { payload?: { command?: string; args?: unknown; type?: string } }
@@ -223,6 +252,29 @@ export function startPipedriveMockHost(_config?: MockHostConfig): MockHost {
         reply();
         break;
       }
+      case COMMAND_RESIZE: {
+        const args = payload.args as { height?: number } | undefined;
+        if (args?.height != null) {
+          const surface = resolveSurface();
+          // A Custom Panel's height is clamped to 100–750px (width is fixed, so
+          // RESIZE's width argument is ignored). Untyped surfaces resize freely.
+          const isPanel = surface.classList.contains('pd-mock-panel');
+          const height = isPanel
+            ? Math.min(750, Math.max(100, args.height))
+            : args.height;
+          surface.style.height = `${height}px`;
+        }
+        reply();
+        break;
+      }
+      case COMMAND_GET_METADATA: {
+        const surface = resolveSurface();
+        reply({
+          windowWidth: surface.offsetWidth,
+          windowHeight: surface.offsetHeight,
+        });
+        break;
+      }
       default:
         // Reply void so the SDK's promise resolves rather than hanging.
         reply();
@@ -242,6 +294,7 @@ export function startPipedriveMockHost(_config?: MockHostConfig): MockHost {
     teardown() {
       window.removeEventListener('message', onMessage);
       hostEl.remove();
+      surfaceStyleEl.remove();
     },
   };
 }

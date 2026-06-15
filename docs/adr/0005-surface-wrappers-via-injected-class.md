@@ -21,7 +21,7 @@ what opts into a type's look and constraints.
   already-locked `config.surface`.
 - **Config-only** (`surface: { type: 'panel', element }`): no markup, but the
   host has to reach into and restyle the consumer's element, and it doesn't match
-  the consumer's "everything goes *inside* the wrapper" mental model.
+  the consumer's "everything goes _inside_ the wrapper" mental model.
 
 A class on a plain `<div>` is the lightest thing that works in any framework and
 in vanilla HTML, needs no element registration, and reads naturally as a wrapper.

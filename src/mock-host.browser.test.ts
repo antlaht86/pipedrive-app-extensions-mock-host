@@ -77,3 +77,67 @@ test('the snackbar is visibly marked as a mock', async () => {
   const ui = within(host.shadowRoot as unknown as HTMLElement);
   expect(ui.getByText('MOCK')).toBeVisible();
 });
+
+// Custom Panel surface wrapper (see ADR-0005).
+
+function renderPanel(): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'pd-mock-panel';
+  document.body.appendChild(panel);
+  return panel;
+}
+
+afterEach(() => {
+  document.querySelectorAll('.pd-mock-panel').forEach((el) => el.remove());
+});
+
+test('a .pd-mock-panel wrapper gets the fixed panel width', async () => {
+  host = startPipedriveMockHost();
+
+  const panel = renderPanel();
+
+  expect(panel.offsetWidth).toBe(385);
+});
+
+test('RESIZE sets the panel height within the allowed range', async () => {
+  host = startPipedriveMockHost();
+  const panel = renderPanel();
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.RESIZE, { height: 400 });
+
+  expect(panel.offsetHeight).toBe(400);
+});
+
+test('RESIZE clamps the panel height to the 100–750px range', async () => {
+  host = startPipedriveMockHost();
+  const panel = renderPanel();
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.RESIZE, { height: 900 });
+  expect(panel.offsetHeight).toBe(750);
+
+  await sdk.execute(Command.RESIZE, { height: 40 });
+  expect(panel.offsetHeight).toBe(100);
+});
+
+test('RESIZE ignores width — the panel stays at the fixed width', async () => {
+  host = startPipedriveMockHost();
+  const panel = renderPanel();
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.RESIZE, { width: 600, height: 300 });
+
+  expect(panel.offsetWidth).toBe(385);
+});
+
+test('GET_METADATA returns the panel surface dimensions', async () => {
+  host = startPipedriveMockHost();
+  renderPanel();
+  const sdk = await createSdk();
+  await sdk.execute(Command.RESIZE, { height: 300 });
+
+  const meta = await sdk.execute(Command.GET_METADATA);
+
+  expect(meta).toEqual({ windowWidth: 385, windowHeight: 300 });
+});
