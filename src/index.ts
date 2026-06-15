@@ -17,10 +17,22 @@
  */
 export const VERSION = '0.0.0';
 
+/** Arguments the App Extension passes to `SHOW_CONFIRMATION`. */
+export interface ConfirmationArgs {
+  title: string;
+  description?: string;
+  okText?: string;
+  cancelText?: string;
+  okColor?: string;
+}
+
 /** Configuration for the Mock Host. Fields land incrementally; see the design. */
 export interface MockHostConfig {
-  /** Reserved for future configuration (surface, theme, resolvers, …). */
-  readonly reserved?: never;
+  /**
+   * Headless override for `SHOW_CONFIRMATION`: return whether the user
+   * confirmed. When omitted, an interactive dialog is rendered instead.
+   */
+  onConfirmation?: (args: ConfirmationArgs) => boolean | Promise<boolean>;
 }
 
 /** A single command the App Extension sent, captured for inspection in tests. */
@@ -46,6 +58,7 @@ export interface MockHost {
 const MESSAGE_TYPE_COMMAND = 'command';
 const COMMAND_INITIALIZE = 'initialize';
 const COMMAND_SHOW_SNACKBAR = 'show_snackbar';
+const COMMAND_SHOW_CONFIRMATION = 'show_confirmation';
 const COMMAND_RESIZE = 'resize';
 const COMMAND_GET_METADATA = 'get_metadata';
 
@@ -135,6 +148,70 @@ const SURFACE_STYLES = `
   }
 `;
 
+// Confirmation dialog — a centred overlay in the shadow root (not a Surface).
+const CONFIRMATION_STYLES = `
+  .pd-mock-confirm-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483646;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(20, 24, 31, 0.35);
+  }
+  .pd-mock-confirm {
+    box-sizing: border-box;
+    width: min(90vw, 360px);
+    background: #fff;
+    color: #20242b;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 12px 40px rgba(20, 24, 31, 0.28);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    animation: pd-mock-pop 0.15s ease-out;
+  }
+  .pd-mock-confirm-title {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .pd-mock-confirm-desc {
+    margin: 0 0 16px;
+    color: #5b626b;
+  }
+  .pd-mock-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .pd-mock-confirm-btn {
+    font: inherit;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid #d2d6dc;
+    background: #fff;
+    color: #20242b;
+    cursor: pointer;
+  }
+  .pd-mock-confirm-btn--ok {
+    border-color: transparent;
+    background: #2563eb;
+    color: #fff;
+  }
+  .pd-mock-confirm-btn--ok.is-negative {
+    background: #d6453d;
+  }
+  @keyframes pd-mock-pop {
+    from {
+      transform: scale(0.96);
+    }
+    to {
+      transform: none;
+    }
+  }
+`;
+
 /** Inert handle returned when there is no DOM (e.g. SSR). */
 const NOOP_HOST: MockHost = {
   get shadowRoot(): ShadowRoot {
@@ -154,7 +231,7 @@ let activeHost: MockHost | null = null;
  * Start the Mock Host: listen for the SDK's messages on `window` and answer
  * them. Returns a handle to inspect, drive and tear down the host.
  */
-export function startPipedriveMockHost(_config?: MockHostConfig): MockHost {
+export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // SSR-safe: with no window (e.g. Next.js server render) return an inert handle.
   if (typeof window === 'undefined') {
     return NOOP_HOST;
@@ -231,6 +308,71 @@ export function startPipedriveMockHost(_config?: MockHostConfig): MockHost {
     window.setTimeout(() => bar.remove(), 5000);
   };
 
+  const ensureConfirmationStyles = (): void => {
+    if (shadowRoot.querySelector('style[data-pd-mock="confirm-styles"]')) {
+      return;
+    }
+    const style = document.createElement('style');
+    style.setAttribute('data-pd-mock', 'confirm-styles');
+    style.textContent = CONFIRMATION_STYLES;
+    shadowRoot.appendChild(style);
+  };
+
+  const renderConfirmation = (
+    args: ConfirmationArgs,
+    onResolve: (confirmed: boolean) => void,
+  ): void => {
+    ensureConfirmationStyles();
+    const backdrop = document.createElement('div');
+    backdrop.className = 'pd-mock-confirm-backdrop';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'pd-mock-confirm';
+    dialog.setAttribute('role', 'dialog');
+
+    const title = document.createElement('h2');
+    title.className = 'pd-mock-confirm-title';
+    title.textContent = args.title;
+    dialog.appendChild(title);
+
+    if (args.description) {
+      const desc = document.createElement('p');
+      desc.className = 'pd-mock-confirm-desc';
+      desc.textContent = args.description;
+      dialog.appendChild(desc);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'pd-mock-confirm-actions';
+
+    const answer = (confirmed: boolean): void => {
+      backdrop.remove();
+      onResolve(confirmed);
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'pd-mock-confirm-btn';
+    cancelBtn.textContent = args.cancelText ?? 'Cancel';
+    cancelBtn.addEventListener('click', () => answer(false));
+
+    const okBtn = document.createElement('button');
+    okBtn.type = 'button';
+    okBtn.className = 'pd-mock-confirm-btn pd-mock-confirm-btn--ok';
+    if (args.okColor === 'negative') {
+      okBtn.classList.add('is-negative');
+    }
+    okBtn.textContent = args.okText ?? 'OK';
+    okBtn.addEventListener('click', () => answer(true));
+
+    actions.appendChild(cancelBtn);
+    actions.appendChild(okBtn);
+    dialog.appendChild(actions);
+
+    backdrop.appendChild(dialog);
+    shadowRoot.appendChild(backdrop);
+  };
+
   // Where the App Extension renders. Auto-detect the panel wrapper; fall back to
   // the document body (config.surface override is a later slice).
   const resolveSurface = (): HTMLElement =>
@@ -261,6 +403,18 @@ export function startPipedriveMockHost(_config?: MockHostConfig): MockHost {
           | undefined;
         renderSnackbar(args?.message ?? '', args?.link);
         reply();
+        break;
+      }
+      case COMMAND_SHOW_CONFIRMATION: {
+        const args = payload.args as ConfirmationArgs;
+        if (config.onConfirmation) {
+          Promise.resolve(config.onConfirmation(args)).then((confirmed) =>
+            reply({ confirmed: Boolean(confirmed) }),
+          );
+        } else {
+          // Render an interactive dialog that resolves when the user answers.
+          renderConfirmation(args, (confirmed) => reply({ confirmed }));
+        }
         break;
       }
       case COMMAND_RESIZE: {

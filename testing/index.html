@@ -92,6 +92,9 @@
       >
       <input id="height" type="number" value="300" />
       <button id="resize" disabled>Resize panel</button>
+
+      <label>Confirmation dialog</label>
+      <button id="confirm" disabled>Show confirmation</button>
     </div>
 
     <!-- Real SDK (UMD) → window.AppExtensionsSDK -->
@@ -106,6 +109,7 @@
         const messageEl = document.getElementById('message');
         const heightEl = document.getElementById('height');
         const resizeEl = document.getElementById('resize');
+        const confirmEl = document.getElementById('confirm');
 
         // The UMD global is either the class itself (enums hang off it) or a
         // namespace whose `.default` is the class — normalize both. Enums are a
@@ -128,6 +132,7 @@
         statusEl.textContent = 'SDK initialized ✓';
         buttonEl.disabled = false;
         resizeEl.disabled = false;
+        confirmEl.disabled = false;
 
         // Size the panel to fit its content on load.
         await sdk.execute(Command.RESIZE, { height: Number(heightEl.value) });
@@ -145,6 +150,16 @@
           });
           const meta = await sdk.execute(Command.GET_METADATA);
           statusEl.textContent = `GET_METADATA → ${meta.windowWidth}×${meta.windowHeight}px (clamped 100–750)`;
+        });
+
+        confirmEl.addEventListener('click', async () => {
+          const { confirmed } = await sdk.execute(Command.SHOW_CONFIRMATION, {
+            title: 'Delete this deal?',
+            description: 'This action cannot be undone.',
+            okText: 'Delete',
+            okColor: 'negative',
+          });
+          statusEl.textContent = `SHOW_CONFIRMATION → confirmed: ${confirmed}`;
         });
       })().catch((err) => {
         document.getElementById('status').textContent = 'Error: ' + err.message;

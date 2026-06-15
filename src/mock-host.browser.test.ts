@@ -1,5 +1,6 @@
 import * as sdkModule from '@pipedrive/app-extensions-sdk';
 import { within } from '@testing-library/dom';
+import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, test } from 'vitest';
 import { startPipedriveMockHost, type MockHost } from './index.js';
 
@@ -84,12 +85,10 @@ test('an unimplemented command resolves to an object, not undefined', async () =
   host = startPipedriveMockHost();
   const sdk = await createSdk();
 
-  // SHOW_CONFIRMATION is not implemented yet. Its result must be an object so
-  // that consumer code destructuring it (e.g. `const { confirmed } = ...`) does
-  // not throw on `undefined`.
-  const result = await sdk.execute(Command.SHOW_CONFIRMATION, {
-    title: 'Delete?',
-  });
+  // GET_SIGNED_TOKEN is not implemented yet. Its result must be an object so
+  // that consumer code destructuring it (e.g. `const { token } = ...`) does not
+  // throw on `undefined`.
+  const result = await sdk.execute(Command.GET_SIGNED_TOKEN);
 
   expect(result).toEqual({});
 });
@@ -100,6 +99,69 @@ test('starting twice without teardown reuses the single host', () => {
   startPipedriveMockHost();
 
   expect(document.querySelectorAll('pipedrive-mock-host')).toHaveLength(1);
+});
+
+test('SHOW_CONFIRMATION resolves via config.onConfirmation without UI', async () => {
+  host = startPipedriveMockHost({ onConfirmation: () => true });
+  const sdk = await createSdk();
+
+  const result = await sdk.execute(Command.SHOW_CONFIRMATION, {
+    title: 'Delete this deal?',
+  });
+
+  expect(result).toEqual({ confirmed: true });
+});
+
+test('SHOW_CONFIRMATION renders a dialog with the title when not overridden', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  // Not awaited: the dialog stays open until the user answers.
+  void sdk.execute(Command.SHOW_CONFIRMATION, { title: 'Delete this deal?' });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  expect(await ui.findByText('Delete this deal?')).toBeVisible();
+});
+
+test('clicking OK resolves SHOW_CONFIRMATION with confirmed: true', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  const resultPromise = sdk.execute(Command.SHOW_CONFIRMATION, {
+    title: 'Delete this deal?',
+  });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  await userEvent.click(await ui.findByRole('button', { name: 'OK' }));
+
+  expect(await resultPromise).toEqual({ confirmed: true });
+});
+
+test('clicking Cancel resolves SHOW_CONFIRMATION with confirmed: false', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  const resultPromise = sdk.execute(Command.SHOW_CONFIRMATION, {
+    title: 'Delete this deal?',
+  });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  await userEvent.click(await ui.findByRole('button', { name: 'Cancel' }));
+
+  expect(await resultPromise).toEqual({ confirmed: false });
+});
+
+test('SHOW_CONFIRMATION renders the optional description', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  void sdk.execute(Command.SHOW_CONFIRMATION, {
+    title: 'Delete this deal?',
+    description: 'This cannot be undone.',
+  });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  expect(await ui.findByText('This cannot be undone.')).toBeVisible();
 });
 
 // Custom Panel surface wrapper (see ADR-0005).
