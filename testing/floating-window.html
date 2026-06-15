@@ -61,7 +61,11 @@
     <p>
       The app lives inside
       <code>&lt;div class="pd-mock-floating-window"&gt;</code>, fixed to the
-      bottom-right corner.
+      top-right corner.
+    </p>
+    <p>
+      <button id="show" disabled>Show floating window</button>
+      <button id="hide" disabled>Hide floating window</button>
     </p>
 
     <div class="pd-mock-floating-window" id="surface" style="padding: 12px">
@@ -87,6 +91,8 @@
 
         statusEl.textContent = 'SDK initialized ✓';
         resizeEl.disabled = false;
+        document.getElementById('show').disabled = false;
+        document.getElementById('hide').disabled = false;
 
         resizeEl.addEventListener('click', async () => {
           await sdk.execute(Command.RESIZE, {
@@ -95,6 +101,13 @@
           });
           const meta = await sdk.execute(Command.GET_METADATA);
           statusEl.textContent = `${meta.windowWidth}×${meta.windowHeight}px`;
+        });
+
+        document.getElementById('show').addEventListener('click', () => {
+          sdk.execute(Command.SHOW_FLOATING_WINDOW, {});
+        });
+        document.getElementById('hide').addEventListener('click', () => {
+          sdk.execute(Command.HIDE_FLOATING_WINDOW, {});
         });
       })().catch((err) => {
         document.getElementById('status').textContent = 'Error: ' + err.message;

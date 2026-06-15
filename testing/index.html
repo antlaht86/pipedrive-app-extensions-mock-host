@@ -1,18 +1,15 @@
 <!doctype html>
 <!--
-  Manual playground for the Pipedrive App Extensions Mock Host.
+  Comprehensive manual playground for the Pipedrive App Extensions Mock Host.
 
-  This is a plain HTML page (no bundler) that loads the REAL SDK's UMD build and
-  our IIFE build as classic <script> tags — the vanilla-JS path the IIFE exists
-  for. The page is the App Extension; the Mock Host plays Pipedrive.
-
-  How to run (from the repo root):
-    npm run build                 # produce dist/index.global.js
-    npx http-server . -p 8080     # or: python3 -m http.server 8080
+  Run from the repo root:
+    npm run build
+    npx http-server . -p 8080   # or: python3 -m http.server 8080
     open http://localhost:8080/testing/
 
-  It must be a TOP-LEVEL page (not an iframe) so window.parent === window and the
-  Mock Host receives the SDK's messages.
+  Every Command and Event from the design plan has a control here. The app is
+  wrapped in <div class="pd-mock-panel"> (the Custom Panel surface). See
+  modal.html and floating-window.html for the other two surfaces.
 -->
 <html lang="en">
   <head>
@@ -22,19 +19,27 @@
     <style>
       body {
         font:
-          16px/1.5 system-ui,
+          15px/1.5 system-ui,
           sans-serif;
-        max-width: 40rem;
-        margin: 3rem auto;
+        max-width: 44rem;
+        margin: 2rem auto;
         padding: 0 1rem;
         color: #1a1a1a;
       }
       h1 {
-        font-size: 1.25rem;
+        font-size: 1.2rem;
+      }
+      h2 {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #5b626b;
+        margin: 1.2rem 0 0.4rem;
       }
       button {
         font: inherit;
-        padding: 0.5rem 1rem;
+        padding: 0.35rem 0.7rem;
+        margin: 0.15rem 0.15rem 0 0;
         border: 1px solid #1a1a1a;
         border-radius: 6px;
         background: #fff;
@@ -43,114 +48,155 @@
       button:hover {
         background: #f2f2f2;
       }
-      #status {
-        margin: 1rem 0;
-        padding: 0.5rem 0.75rem;
-        border-radius: 6px;
-        background: #f2f2f2;
-        font-family: ui-monospace, monospace;
-        font-size: 0.85rem;
-      }
-      label {
-        display: block;
-        margin: 1rem 0 0.25rem;
-        font-size: 0.85rem;
-      }
       input {
         font: inherit;
-        padding: 0.4rem 0.6rem;
-        width: 100%;
-        box-sizing: border-box;
+        padding: 0.25rem 0.45rem;
+        width: 5rem;
         border: 1px solid #ccc;
         border-radius: 6px;
+      }
+      #log {
+        margin-top: 1rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        background: #11151c;
+        color: #d6f5c3;
+        font-family: ui-monospace, monospace;
+        font-size: 0.78rem;
+        white-space: pre-wrap;
+        min-height: 5rem;
       }
     </style>
   </head>
   <body>
     <h1>Pipedrive App Extensions — Mock Host playground</h1>
     <p>
-      This page is an <strong>App Extension</strong>. It uses the real
-      <code>@pipedrive/app-extensions-sdk</code>, talking to the
-      <strong>Mock Host</strong> instead of Pipedrive.
+      This app lives in a <code>&lt;div class="pd-mock-panel"&gt;</code>. Every
+      Command and Event is wired below; results append to the log.
     </p>
 
-    <p>
-      The app below lives inside a
-      <code>&lt;div class="pd-mock-panel"&gt;</code>. The Mock Host styles it as
-      a real Custom Panel: fixed 385px wide, height clamped to 100–750px.
-    </p>
+    <div class="pd-mock-panel" id="surface" style="padding: 14px">
+      <h2>Commands</h2>
+      <button data-cmd="snackbar">Snackbar</button>
+      <button data-cmd="confirmation">Confirmation</button>
+      <button data-cmd="modal-deal">Open deal modal</button>
+      <button data-cmd="modal-custom">Open custom modal</button>
+      <button data-cmd="close-modal">Close modal</button>
+      <button data-cmd="redirect">Redirect → deals</button>
+      <button data-cmd="notification">Set notification 3</button>
+      <button data-cmd="focus-on">Focus mode on</button>
+      <button data-cmd="focus-off">Focus mode off</button>
+      <button data-cmd="token">Get signed token</button>
+      <br />
+      <label
+        >Panel height <input id="height" type="number" value="260"
+      /></label>
+      <button data-cmd="resize">Resize</button>
+      <button data-cmd="metadata">Get metadata</button>
 
-    <div class="pd-mock-panel" id="panel" style="padding: 14px">
-      <div id="status">initializing…</div>
+      <h2>Events (host → app)</h2>
+      <button data-cmd="emit-visibility">Emit VISIBILITY</button>
+      <button data-cmd="emit-theme">Emit USER_SETTINGS_CHANGE</button>
+      <button data-cmd="emit-close-modal">Emit CLOSE_CUSTOM_MODAL</button>
 
-      <label for="message">Snackbar message</label>
-      <input id="message" value="Deal saved!" />
-      <button id="snackbar" disabled>Show snackbar</button>
-
-      <label for="height"
-        >Panel height (px) — try 40 or 900 to see clamping</label
-      >
-      <input id="height" type="number" value="300" />
-      <button id="resize" disabled>Resize panel</button>
-
-      <label>Confirmation dialog</label>
-      <button id="confirm" disabled>Show confirmation</button>
+      <div id="log">booting…</div>
     </div>
 
-    <!-- Real SDK (UMD) → window.AppExtensionsSDK -->
     <script src="../node_modules/@pipedrive/app-extensions-sdk/dist/index.umd.js"></script>
-    <!-- Mock Host (IIFE) → window.PipedriveMockHost -->
     <script src="../dist/index.global.js"></script>
-    <!-- Shared boot helper → window.bootMockHost -->
     <script src="boot.js"></script>
-
     <script>
       (async () => {
-        const statusEl = document.getElementById('status');
-        const buttonEl = document.getElementById('snackbar');
-        const messageEl = document.getElementById('message');
+        const logEl = document.getElementById('log');
         const heightEl = document.getElementById('height');
-        const resizeEl = document.getElementById('resize');
-        const confirmEl = document.getElementById('confirm');
+        const log = (msg) => {
+          logEl.textContent = `${msg}\n${logEl.textContent}`.slice(0, 2000);
+        };
 
-        // Top-level page, so the SDK's default target (window.parent === window)
-        // reaches the Mock Host.
-        const { sdk, Command, host } = await window.bootMockHost();
-
-        statusEl.textContent = 'SDK initialized ✓';
-        buttonEl.disabled = false;
-        resizeEl.disabled = false;
-        confirmEl.disabled = false;
-
-        // Size the panel to fit its content on load.
-        await sdk.execute(Command.RESIZE, { height: Number(heightEl.value) });
-
-        // 3. Drive commands. The Mock Host renders the snackbar / resizes panel.
-        buttonEl.addEventListener('click', async () => {
-          await sdk.execute(Command.SHOW_SNACKBAR, {
-            message: messageEl.value,
-          });
+        const { sdk, Command, Event, host } = await window.bootMockHost({
+          customModals: {
+            'demo-modal':
+              'data:text/html,<body style=font-family:system-ui><h3>Custom modal content</h3><p>Loaded in an iframe by the Mock Host.</p></body>',
+          },
         });
+        log('SDK initialized ✓');
+        await sdk.execute(Command.RESIZE, { height: 420 }); // fit the controls
 
-        resizeEl.addEventListener('click', async () => {
-          await sdk.execute(Command.RESIZE, {
-            height: Number(heightEl.value),
-          });
-          const meta = await sdk.execute(Command.GET_METADATA);
-          statusEl.textContent = `GET_METADATA → ${meta.windowWidth}×${meta.windowHeight}px (clamped 100–750)`;
-        });
+        // Listen for every host-driven event and log it.
+        for (const ev of [
+          Event.VISIBILITY,
+          Event.USER_SETTINGS_CHANGE,
+          Event.CLOSE_CUSTOM_MODAL,
+          Event.PAGE_VISIBILITY_STATE,
+        ]) {
+          sdk.listen(ev, (r) => log(`event ${ev}: ${JSON.stringify(r.data)}`));
+        }
 
-        confirmEl.addEventListener('click', async () => {
-          const { confirmed } = await sdk.execute(Command.SHOW_CONFIRMATION, {
-            title: 'Delete this deal?',
-            description: 'This action cannot be undone.',
-            okText: 'Delete',
-            okColor: 'negative',
+        const actions = {
+          snackbar: () =>
+            sdk.execute(Command.SHOW_SNACKBAR, {
+              message: 'Deal saved!',
+              link: { url: '#', label: 'View' },
+            }),
+          confirmation: async () => {
+            const { confirmed } = await sdk.execute(Command.SHOW_CONFIRMATION, {
+              title: 'Delete this deal?',
+              description: 'This cannot be undone.',
+              okText: 'Delete',
+              okColor: 'negative',
+            });
+            log(`confirmation → confirmed: ${confirmed}`);
+          },
+          'modal-deal': async () => {
+            const r = await sdk.execute(Command.OPEN_MODAL, { type: 'deal' });
+            log(`deal modal → ${JSON.stringify(r)}`);
+          },
+          'modal-custom': async () => {
+            const r = await sdk.execute(Command.OPEN_MODAL, {
+              type: 'custom_modal',
+              action_id: 'demo-modal',
+            });
+            log(`custom modal → ${JSON.stringify(r)}`);
+          },
+          'close-modal': () => sdk.execute(Command.CLOSE_MODAL),
+          redirect: () =>
+            sdk.execute(Command.REDIRECT_TO, { view: 'deals', id: 42 }),
+          notification: () =>
+            sdk.execute(Command.SET_NOTIFICATION, { number: 3 }),
+          'focus-on': () => sdk.execute(Command.SET_FOCUS_MODE, true),
+          'focus-off': () => sdk.execute(Command.SET_FOCUS_MODE, false),
+          token: async () => {
+            const { token } = await sdk.execute(Command.GET_SIGNED_TOKEN);
+            log(`signed token → ${token}`);
+          },
+          resize: () =>
+            sdk.execute(Command.RESIZE, { height: Number(heightEl.value) }),
+          metadata: async () => {
+            const m = await sdk.execute(Command.GET_METADATA);
+            log(`metadata → ${m.windowWidth}×${m.windowHeight}px`);
+          },
+          'emit-visibility': () =>
+            host.emit(Event.VISIBILITY, {
+              is_visible: true,
+              context: { invoker: 'user' },
+            }),
+          'emit-theme': () =>
+            host.emit(Event.USER_SETTINGS_CHANGE, { theme: 'dark' }),
+          'emit-close-modal': () => host.emit(Event.CLOSE_CUSTOM_MODAL),
+        };
+
+        document.querySelectorAll('button[data-cmd]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            try {
+              await actions[btn.dataset.cmd]?.();
+              log(`▶ ${btn.dataset.cmd}`);
+            } catch (err) {
+              log(`✗ ${btn.dataset.cmd}: ${err.message}`);
+            }
           });
-          statusEl.textContent = `SHOW_CONFIRMATION → confirmed: ${confirmed}`;
         });
       })().catch((err) => {
-        document.getElementById('status').textContent = 'Error: ' + err.message;
+        document.getElementById('log').textContent = 'Error: ' + err.message;
       });
     </script>
   </body>
