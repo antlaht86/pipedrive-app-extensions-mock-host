@@ -37,12 +37,16 @@ npm install --save-dev pipedrive-app-extensions-mock-host
 import { startPipedriveMockHost } from 'pipedrive-app-extensions-mock-host';
 import AppExtensionsSDK, { Command } from '@pipedrive/app-extensions-sdk';
 
+// Detect dev however you like (Vite: import.meta.env.DEV, Node:
+// process.env.NODE_ENV, or a hostname check for vanilla JS).
+const isDev = location.hostname === 'localhost';
+
 // Start the host only in development.
-const host = import.meta.env.DEV ? startPipedriveMockHost() : undefined;
+const host = isDev ? startPipedriveMockHost() : undefined;
 
 // The real SDK, pointed at the mock host (no iframe → identifier must be given).
 const sdk = await new AppExtensionsSDK(
-  import.meta.env.DEV ? { identifier: 'dev-local' } : undefined,
+  isDev ? { identifier: 'dev-local' } : undefined,
 ).initialize();
 
 await sdk.execute(Command.SHOW_SNACKBAR, {

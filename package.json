@@ -33,9 +33,14 @@
   "jsdelivr": "./dist/index.global.js",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "sideEffects": false,
@@ -50,7 +55,10 @@
     "check-format": "prettier --check .",
     "ci": "npm run build && npm run typecheck && npm run check-format && npm run test",
     "local-release": "changeset version && changeset publish",
-    "prepublishOnly": "npm run ci"
+    "prepublishOnly": "npm run build && npm run typecheck && npm run check-format && npm run test:unit"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "peerDependencies": {
     "@pipedrive/app-extensions-sdk": ">=0.16.0"
