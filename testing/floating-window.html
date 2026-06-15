@@ -63,7 +63,8 @@
       <code>&lt;div class="pd-mock-floating-window"&gt;</code>, fixed to the
       top-right corner.
     </p>
-    <p>
+    <!-- Pinned bottom-left so the top-right floating window never covers them. -->
+    <p style="position: fixed; bottom: 1rem; left: 1rem; margin: 0">
       <button id="show" disabled>Show floating window</button>
       <button id="hide" disabled>Hide floating window</button>
     </p>
