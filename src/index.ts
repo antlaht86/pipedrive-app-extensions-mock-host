@@ -26,6 +26,20 @@ export interface ConfirmationArgs {
   okColor?: string;
 }
 
+/** Attributes the App Extension passes to `OPEN_MODAL`. */
+export interface ModalArgs {
+  type?: string;
+  action_id?: string;
+  data?: Record<string, string>;
+  prefill?: Record<string, unknown>;
+}
+
+/** The `{ status, id? }` an opened modal resolves to. */
+export interface ModalResult {
+  status: string;
+  id?: number;
+}
+
 /** Configuration for the Mock Host. Fields land incrementally; see the design. */
 export interface MockHostConfig {
   /**
@@ -38,6 +52,12 @@ export interface MockHostConfig {
    * to exercise your backend's verify path. Defaults to `'dev-signed-token'`.
    */
   getSignedToken?: () => string | Promise<string>;
+  /** Headless override for `OPEN_MODAL`; return the modal result. */
+  onModal?: (attrs: ModalArgs) => ModalResult | Promise<ModalResult>;
+  /** Maps a CUSTOM_MODAL `action_id` to the URL the modal iframe should load. */
+  customModals?:
+    | Record<string, string>
+    | ((attrs: ModalArgs) => string | undefined);
 }
 
 /** A single command the App Extension sent, captured for inspection in tests. */
@@ -62,6 +82,7 @@ export interface MockHost {
 // host has no runtime dependency on @pipedrive/app-extensions-sdk (see ADR-0003).
 const MESSAGE_TYPE_COMMAND = 'command';
 const MESSAGE_TYPE_LISTENER = 'listener';
+const MESSAGE_TYPE_TRACK = 'track';
 const COMMAND_INITIALIZE = 'initialize';
 const COMMAND_SHOW_SNACKBAR = 'show_snackbar';
 const COMMAND_SHOW_CONFIRMATION = 'show_confirmation';
@@ -73,6 +94,9 @@ const COMMAND_SET_FOCUS_MODE = 'set_focus_mode';
 const COMMAND_REDIRECT_TO = 'redirect_to';
 const COMMAND_SHOW_FLOATING_WINDOW = 'show_floating_window';
 const COMMAND_HIDE_FLOATING_WINDOW = 'hide_floating_window';
+const COMMAND_OPEN_MODAL = 'open_modal';
+const COMMAND_CLOSE_MODAL = 'close_modal';
+const EVENT_CLOSE_CUSTOM_MODAL = 'close_custom_modal';
 
 /** Returned by GET_SIGNED_TOKEN when the consumer provides no override. */
 const DEFAULT_SIGNED_TOKEN = 'dev-signed-token';
@@ -249,6 +273,13 @@ const CONFIRMATION_STYLES = `
     justify-content: flex-end;
     gap: 8px;
   }
+  .pd-mock-custom-frame {
+    display: block;
+    width: min(80vw, 480px);
+    height: min(70vh, 360px);
+    margin: 0 0 16px;
+    border: 0;
+  }
   .pd-mock-confirm-btn {
     font: inherit;
     font-weight: 600;
@@ -352,6 +383,17 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // Open listener ports the App Extension registered via `sdk.listen`, keyed by
   // event name. `emit` pushes to every port for an event.
   const listeners = new Map<string, Set<MessagePort>>();
+
+  // Push an event to every listener registered for it.
+  const emitEvent = (eventName: string, eventData: unknown): void => {
+    const ports = listeners.get(eventName);
+    if (!ports) {
+      return;
+    }
+    for (const port of ports) {
+      port.postMessage({ data: eventData });
+    }
+  };
 
   const hostEl = document.createElement('pipedrive-mock-host');
   const shadowRoot = hostEl.attachShadow({ mode: 'open' });
@@ -479,6 +521,113 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     shadowRoot.appendChild(backdrop);
   };
 
+  // The currently open modal, if any, so CLOSE_MODAL can dismiss it.
+  let resolveOpenModal: ((result: ModalResult) => void) | null = null;
+  let removeOpenModal: (() => void) | null = null;
+
+  const closeModal = (result: ModalResult): void => {
+    removeOpenModal?.();
+    removeOpenModal = null;
+    const resolve = resolveOpenModal;
+    resolveOpenModal = null;
+    resolve?.(result);
+  };
+
+  const openEntityModal = (
+    attrs: ModalArgs,
+    onResolve: (result: ModalResult) => void,
+  ): void => {
+    ensureConfirmationStyles();
+    resolveOpenModal = onResolve;
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'pd-mock-confirm-backdrop';
+    const dialog = document.createElement('div');
+    dialog.className = 'pd-mock-confirm';
+    dialog.setAttribute('role', 'dialog');
+
+    const title = document.createElement('h2');
+    title.className = 'pd-mock-confirm-title';
+    title.textContent = `Modal: ${attrs.type ?? ''}`;
+    dialog.appendChild(title);
+
+    const actions = document.createElement('div');
+    actions.className = 'pd-mock-confirm-actions';
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'pd-mock-confirm-btn';
+    closeBtn.textContent = 'Close';
+    closeBtn.addEventListener('click', () => closeModal({ status: 'closed' }));
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'button';
+    submitBtn.className = 'pd-mock-confirm-btn pd-mock-confirm-btn--ok';
+    submitBtn.textContent = 'Submit';
+    submitBtn.addEventListener('click', () =>
+      closeModal({ status: 'submitted', id: 1 }),
+    );
+    actions.append(closeBtn, submitBtn);
+    dialog.appendChild(actions);
+
+    backdrop.appendChild(dialog);
+    shadowRoot.appendChild(backdrop);
+    removeOpenModal = () => backdrop.remove();
+  };
+
+  const resolveCustomModalUrl = (attrs: ModalArgs): string | undefined => {
+    const cm = config.customModals;
+    let url: string | undefined;
+    if (typeof cm === 'function') {
+      url = cm(attrs);
+    } else if (cm && attrs.action_id) {
+      url = cm[attrs.action_id];
+    }
+    return url ?? attrs.data?.url;
+  };
+
+  const openCustomModal = (
+    attrs: ModalArgs,
+    onResolve: (result: ModalResult) => void,
+  ): void => {
+    ensureConfirmationStyles();
+    resolveOpenModal = onResolve;
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'pd-mock-confirm-backdrop';
+    const dialog = document.createElement('div');
+    dialog.className = 'pd-mock-confirm';
+    dialog.setAttribute('role', 'dialog');
+
+    const url = resolveCustomModalUrl(attrs);
+    if (url) {
+      const iframe = document.createElement('iframe');
+      iframe.className = 'pd-mock-custom-frame';
+      iframe.title = 'custom modal';
+      iframe.src = url;
+      dialog.appendChild(iframe);
+    } else {
+      const placeholder = document.createElement('p');
+      placeholder.textContent = `custom_modal: ${attrs.action_id ?? ''} (no URL configured)`;
+      dialog.appendChild(placeholder);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'pd-mock-confirm-actions';
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'pd-mock-confirm-btn';
+    closeBtn.textContent = 'Close';
+    closeBtn.addEventListener('click', () => {
+      emitEvent(EVENT_CLOSE_CUSTOM_MODAL, undefined);
+      closeModal({ status: 'closed' });
+    });
+    actions.appendChild(closeBtn);
+    dialog.appendChild(actions);
+
+    backdrop.appendChild(dialog);
+    shadowRoot.appendChild(backdrop);
+    removeOpenModal = () => backdrop.remove();
+  };
+
   // Lazily create the top-left chrome layer that holds host indicators.
   const ensureChrome = (): HTMLElement => {
     const existing = shadowRoot.querySelector<HTMLElement>('.pd-mock-chrome');
@@ -524,6 +673,12 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         ports.add(port);
         listeners.set(payload.event, ports);
       }
+      return;
+    }
+
+    // A fire-and-forget track (e.g. FOCUSED): record it, no reply.
+    if (payload.type === MESSAGE_TYPE_TRACK && payload.event) {
+      calls.push({ command: payload.event, args: undefined });
       return;
     }
 
@@ -628,6 +783,28 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         reply();
         break;
       }
+      case COMMAND_OPEN_MODAL: {
+        const attrs = payload.args as ModalArgs;
+        if (config.onModal) {
+          void (async () => {
+            try {
+              reply((await config.onModal!(attrs)) ?? { status: 'closed' });
+            } catch {
+              reply({ status: 'closed' });
+            }
+          })();
+        } else if (attrs.type === 'custom_modal') {
+          openCustomModal(attrs, (result) => reply(result));
+        } else {
+          openEntityModal(attrs, (result) => reply(result));
+        }
+        break;
+      }
+      case COMMAND_CLOSE_MODAL: {
+        closeModal({ status: 'closed' });
+        reply();
+        break;
+      }
       case COMMAND_SHOW_FLOATING_WINDOW:
       case COMMAND_HIDE_FLOATING_WINDOW: {
         const fw = document.querySelector<HTMLElement>(
@@ -687,13 +864,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   const handle: MockHost = {
     shadowRoot,
     emit(eventName, eventData) {
-      const ports = listeners.get(eventName);
-      if (!ports) {
-        return;
-      }
-      for (const port of ports) {
-        port.postMessage({ data: eventData });
-      }
+      emitEvent(eventName, eventData);
     },
     getCalls() {
       return [...calls];

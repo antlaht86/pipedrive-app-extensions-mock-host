@@ -90,17 +90,6 @@ test('the snackbar is visibly marked as a mock', async () => {
   expect(ui.getByText('MOCK')).toBeVisible();
 });
 
-test('an unimplemented command resolves to an object, not undefined', async () => {
-  host = startPipedriveMockHost();
-  const sdk = await createSdk();
-
-  // CLOSE_MODAL is not implemented yet. Its result must be an object so that
-  // consumer code destructuring it does not throw on `undefined`.
-  const result = await sdk.execute(Command.CLOSE_MODAL);
-
-  expect(result).toEqual({});
-});
-
 test('starting twice without teardown reuses the single host', () => {
   host = startPipedriveMockHost();
 
@@ -516,4 +505,111 @@ test('HIDE_FLOATING_WINDOW hides the floating window and SHOW reveals it', async
 
   await sdk.execute(Command.SHOW_FLOATING_WINDOW, {});
   expect(fw).toBeVisible();
+});
+
+// Modals (OPEN_MODAL / CLOSE_MODAL).
+
+test('OPEN_MODAL resolves via config.onModal without UI', async () => {
+  host = startPipedriveMockHost({
+    onModal: () => ({ status: 'submitted', id: 42 }),
+  });
+  const sdk = await createSdk();
+
+  const result = await sdk.execute(Command.OPEN_MODAL, { type: 'deal' });
+
+  expect(result).toEqual({ status: 'submitted', id: 42 });
+});
+
+test('OPEN_MODAL renders a modal; Submit resolves submitted with an id', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  const resultPromise = sdk.execute(Command.OPEN_MODAL, { type: 'deal' });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  await userEvent.click(await ui.findByRole('button', { name: 'Submit' }));
+
+  expect(await resultPromise).toEqual({ status: 'submitted', id: 1 });
+});
+
+test('OPEN_MODAL Close resolves closed without an id', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  const resultPromise = sdk.execute(Command.OPEN_MODAL, { type: 'person' });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  await userEvent.click(await ui.findByRole('button', { name: 'Close' }));
+
+  expect(await resultPromise).toEqual({ status: 'closed' });
+});
+
+test('CLOSE_MODAL dismisses the open modal and resolves it closed', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  const resultPromise = sdk.execute(Command.OPEN_MODAL, { type: 'deal' });
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  await ui.findByRole('dialog');
+
+  await sdk.execute(Command.CLOSE_MODAL);
+
+  expect(await resultPromise).toEqual({ status: 'closed' });
+  expect(ui.queryByRole('dialog')).toBeNull();
+});
+
+test('OPEN_MODAL custom_modal renders an iframe to the configured URL', async () => {
+  host = startPipedriveMockHost({
+    customModals: { settings: 'https://example.com/modals/settings' },
+  });
+  const sdk = await createSdk();
+
+  void sdk.execute(Command.OPEN_MODAL, {
+    type: 'custom_modal',
+    action_id: 'settings',
+  });
+
+  await vi.waitFor(() => {
+    const iframe = (host!.shadowRoot as ShadowRoot).querySelector('iframe');
+    expect(iframe).toHaveAttribute(
+      'src',
+      'https://example.com/modals/settings',
+    );
+  });
+});
+
+test('closing a custom_modal fires CLOSE_CUSTOM_MODAL', async () => {
+  host = startPipedriveMockHost({
+    customModals: { x: 'https://example.com/x' },
+  });
+  const sdk = await createSdk();
+  const closed: Array<{ data?: unknown }> = [];
+  sdk.listen(Event.CLOSE_CUSTOM_MODAL, (r) => closed.push(r));
+  await tick();
+
+  void sdk.execute(Command.OPEN_MODAL, {
+    type: 'custom_modal',
+    action_id: 'x',
+  });
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  await userEvent.click(await ui.findByRole('button', { name: 'Close' }));
+
+  await vi.waitFor(() => expect(closed).toHaveLength(1));
+});
+
+// Tracking (FOCUSED).
+
+test('the host records the FOCUSED track the SDK sends on focus', async () => {
+  host = startPipedriveMockHost();
+  await createSdk();
+
+  // The SDK fires FOCUSED on the first focus; blur first so focus re-triggers
+  // regardless of whether the test window was already focused.
+  // Note: the SDK's `Event` enum shadows the DOM Event constructor here, so use
+  // FocusEvent for the focus/blur dispatch.
+  window.dispatchEvent(new FocusEvent('blur'));
+  window.dispatchEvent(new FocusEvent('focus'));
+  await tick();
+
+  expect(host.getCalls().some((c) => c.command === 'focused')).toBe(true);
 });
