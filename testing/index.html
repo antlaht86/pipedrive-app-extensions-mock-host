@@ -117,10 +117,10 @@
         const theme = new URLSearchParams(location.search).get('theme');
         const { sdk, Command, Event, host } = await window.bootMockHost({
           theme: theme === 'dark' ? 'dark' : 'light',
-          customModals: {
-            'demo-modal':
-              'data:text/html,<body style=font-family:system-ui><h3>Custom modal content</h3><p>Loaded in an iframe by the Mock Host.</p></body>',
-          },
+          // A relative URL, not inline HTML. Inline closing body markup in this
+          // script would confuse live-reload servers (e.g. VS Code Live Server)
+          // that inject their snippet before the first closing body tag.
+          customModals: { 'demo-modal': 'custom-modal.html' },
         });
         log('SDK initialized ✓');
         await sdk.execute(Command.RESIZE, { height: 420 }); // fit the controls
