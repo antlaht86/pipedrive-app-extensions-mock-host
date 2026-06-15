@@ -288,12 +288,16 @@ const CONFIRMATION_STYLES = `
     justify-content: flex-end;
     gap: 8px;
   }
+  .pd-mock-confirm--custom {
+    width: min(92vw, 560px);
+  }
   .pd-mock-custom-frame {
     display: block;
-    width: min(80vw, 480px);
-    height: min(70vh, 360px);
+    width: 100%;
+    height: min(60vh, 300px);
     margin: 0 0 16px;
-    border: 0;
+    border: 1px solid #e3e6ea;
+    border-radius: 8px;
   }
   .pd-mock-confirm-btn {
     font: inherit;
@@ -640,7 +644,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     const backdrop = document.createElement('div');
     backdrop.className = 'pd-mock-confirm-backdrop';
     const dialog = document.createElement('div');
-    dialog.className = 'pd-mock-confirm';
+    dialog.className = 'pd-mock-confirm pd-mock-confirm--custom';
     dialog.setAttribute('role', 'dialog');
 
     const url = resolveCustomModalUrl(attrs);
