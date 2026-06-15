@@ -88,7 +88,16 @@
         const wEl = document.getElementById('w');
         const hEl = document.getElementById('h');
 
-        const { sdk, Command } = await window.bootMockHost();
+        const { sdk, Command, Event } = await window.bootMockHost();
+
+        // Log the floating window's visibility whenever it changes.
+        sdk.listen(Event.VISIBILITY, (r) => {
+          console.log(
+            '[floating-window] VISIBILITY is_visible:',
+            r.data?.is_visible,
+            r.data,
+          );
+        });
 
         statusEl.textContent = 'SDK initialized ✓';
         resizeEl.disabled = false;

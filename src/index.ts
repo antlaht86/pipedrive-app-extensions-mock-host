@@ -99,6 +99,7 @@ const COMMAND_HIDE_FLOATING_WINDOW = 'hide_floating_window';
 const COMMAND_OPEN_MODAL = 'open_modal';
 const COMMAND_CLOSE_MODAL = 'close_modal';
 const EVENT_CLOSE_CUSTOM_MODAL = 'close_custom_modal';
+const EVENT_VISIBILITY = 'visibility';
 
 /** Returned by GET_SIGNED_TOKEN when the consumer provides no override. */
 const DEFAULT_SIGNED_TOKEN = 'dev-signed-token';
@@ -817,13 +818,18 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
       }
       case COMMAND_SHOW_FLOATING_WINDOW:
       case COMMAND_HIDE_FLOATING_WINDOW: {
+        const visible = payload.command === COMMAND_SHOW_FLOATING_WINDOW;
         const fw = document.querySelector<HTMLElement>(
           '.pd-mock-floating-window',
         );
         if (fw) {
-          fw.style.display =
-            payload.command === COMMAND_SHOW_FLOATING_WINDOW ? '' : 'none';
+          fw.style.display = visible ? '' : 'none';
         }
+        // Toggling the window's visibility fires a VISIBILITY event.
+        emitEvent(EVENT_VISIBILITY, {
+          is_visible: visible,
+          context: { invoker: 'command' },
+        });
         reply();
         break;
       }

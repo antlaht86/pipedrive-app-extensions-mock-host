@@ -640,3 +640,22 @@ test('PAGE_VISIBILITY_STATE delivers the document visibility (SDK-driven)', asyn
 
   expect(received[0]).toEqual({ data: { state: document.visibilityState } });
 });
+
+test('SHOW/HIDE_FLOATING_WINDOW emit a VISIBILITY event', async () => {
+  host = startPipedriveMockHost();
+  renderSurface('pd-mock-floating-window');
+  const sdk = await createSdk();
+  const events: Array<unknown> = [];
+  sdk.listen(Event.VISIBILITY, (r) => events.push(r.data));
+  await tick();
+
+  await sdk.execute(Command.HIDE_FLOATING_WINDOW, {});
+  await sdk.execute(Command.SHOW_FLOATING_WINDOW, {});
+
+  await vi.waitFor(() =>
+    expect(events).toEqual([
+      { is_visible: false, context: { invoker: 'command' } },
+      { is_visible: true, context: { invoker: 'command' } },
+    ]),
+  );
+});
