@@ -1,5 +1,11 @@
 # Mock Host — design, part 1: full feature inventory + mock approach
 
+> **Status (2026-06-15): IMPLEMENTED.** All 13 commands, all 4 events, the
+> FOCUSED track, the three surface wrappers (panel/modal/floating-window) and
+> every config option are coded, covered by browser tests (against the real
+> SDK), exercisable in `testing/` (index.html + modal.html +
+> floating-window.html), and verified end-to-end in Chromium via MCP.
+
 Date: 2026-06-15. Status: design agreed via grilling session.
 Package: `pipedrive-app-extensions-mock-host`.
 Source of truth for the SDK: `node_modules/@pipedrive/app-extensions-sdk`
