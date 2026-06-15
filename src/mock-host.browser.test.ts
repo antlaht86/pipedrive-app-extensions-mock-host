@@ -21,6 +21,8 @@ let host: MockHost | undefined;
 afterEach(() => {
   host?.teardown();
   host = undefined;
+  // Remove any stray host elements left by tests that start more than one.
+  document.querySelectorAll('pipedrive-mock-host').forEach((el) => el.remove());
 });
 
 // The real SDK posts to `targetWindow` over a MessageChannel; port transfer only
@@ -76,6 +78,28 @@ test('the snackbar is visibly marked as a mock', async () => {
 
   const ui = within(host.shadowRoot as unknown as HTMLElement);
   expect(ui.getByText('MOCK')).toBeVisible();
+});
+
+test('an unimplemented command resolves to an object, not undefined', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  // SHOW_CONFIRMATION is not implemented yet. Its result must be an object so
+  // that consumer code destructuring it (e.g. `const { confirmed } = ...`) does
+  // not throw on `undefined`.
+  const result = await sdk.execute(Command.SHOW_CONFIRMATION, {
+    title: 'Delete?',
+  });
+
+  expect(result).toEqual({});
+});
+
+test('starting twice without teardown reuses the single host', () => {
+  host = startPipedriveMockHost();
+
+  startPipedriveMockHost();
+
+  expect(document.querySelectorAll('pipedrive-mock-host')).toHaveLength(1);
 });
 
 // Custom Panel surface wrapper (see ADR-0005).

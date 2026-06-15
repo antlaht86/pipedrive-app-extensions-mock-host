@@ -147,6 +147,9 @@ const NOOP_HOST: MockHost = {
   teardown() {},
 };
 
+/** The currently running host, if any — used to prevent duplicate instances. */
+let activeHost: MockHost | null = null;
+
 /**
  * Start the Mock Host: listen for the SDK's messages on `window` and answer
  * them. Returns a handle to inspect, drive and tear down the host.
@@ -155,6 +158,14 @@ export function startPipedriveMockHost(_config?: MockHostConfig): MockHost {
   // SSR-safe: with no window (e.g. Next.js server render) return an inert handle.
   if (typeof window === 'undefined') {
     return NOOP_HOST;
+  }
+
+  // One host at a time: a second listener would double-process every command.
+  if (activeHost) {
+    console.warn(
+      '[pipedrive-mock-host] A host is already running; returning the existing instance. Call teardown() before starting again.',
+    );
+    return activeHost;
   }
 
   const calls: MockHostCall[] = [];
@@ -276,14 +287,17 @@ export function startPipedriveMockHost(_config?: MockHostConfig): MockHost {
         break;
       }
       default:
-        // Reply void so the SDK's promise resolves rather than hanging.
-        reply();
+        // Not-yet-implemented command. Reply with an empty object (not
+        // undefined) so the SDK's promise resolves and consumer code that
+        // destructures the result (e.g. `const { confirmed } = …`) does not
+        // throw. Real responses arrive as each command is implemented.
+        reply({});
     }
   };
 
   window.addEventListener('message', onMessage);
 
-  return {
+  const handle: MockHost = {
     shadowRoot,
     emit() {
       // Host-driven events land in a later slice.
@@ -295,6 +309,10 @@ export function startPipedriveMockHost(_config?: MockHostConfig): MockHost {
       window.removeEventListener('message', onMessage);
       hostEl.remove();
       surfaceStyleEl.remove();
+      activeHost = null;
     },
   };
+
+  activeHost = handle;
+  return handle;
 }
