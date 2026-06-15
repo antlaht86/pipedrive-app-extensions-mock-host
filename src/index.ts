@@ -47,15 +47,25 @@ const MESSAGE_TYPE_COMMAND = 'command';
 const COMMAND_INITIALIZE = 'initialize';
 const COMMAND_SHOW_SNACKBAR = 'show_snackbar';
 
-// Scoped to the shadow root — neutral, Pipedrive-flavoured, clearly a mock.
+// Scoped to the shadow root — a calm, grey, clearly-a-mock surface. The palette
+// lives in CSS custom properties on :host so themes can override it later.
 const SNACKBAR_STYLES = `
+  :host {
+    --pd-mock-bg: #e9ebee;
+    --pd-mock-fg: #20242b;
+    --pd-mock-border: #d2d6dc;
+    --pd-mock-badge-bg: #4a5159;
+    --pd-mock-badge-fg: #f4f5f6;
+    --pd-mock-link: #2563eb;
+    --pd-mock-shadow: 0 6px 20px rgba(20, 24, 31, 0.18);
+  }
   .pd-mock-layer {
     position: fixed;
-    left: 50%;
+    right: 16px;
     bottom: 16px;
-    transform: translateX(-50%);
     display: flex;
     flex-direction: column;
+    align-items: flex-end;
     gap: 8px;
     z-index: 2147483647;
     pointer-events: none;
@@ -66,36 +76,41 @@ const SNACKBAR_STYLES = `
     align-items: center;
     gap: 10px;
     max-width: min(90vw, 480px);
-    padding: 10px 14px;
-    border-radius: 8px;
-    background: #23272e;
-    color: #fff;
-    font: 14px/1.4 system-ui, -apple-system, sans-serif;
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+    padding: 9px 13px 9px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--pd-mock-border);
+    background: var(--pd-mock-bg);
+    color: var(--pd-mock-fg);
+    font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    box-shadow: var(--pd-mock-shadow);
     animation: pd-mock-in 0.18s ease-out;
   }
   .pd-mock-badge {
     flex: none;
     font: 700 9px/1 system-ui, sans-serif;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
     padding: 3px 5px;
-    border-radius: 4px;
-    background: #f4c542;
-    color: #23272e;
+    border-radius: 5px;
+    background: var(--pd-mock-badge-bg);
+    color: var(--pd-mock-badge-fg);
   }
   .pd-mock-msg {
     flex: 1 1 auto;
   }
   .pd-mock-link {
     flex: none;
-    color: #8ab4ff;
-    text-decoration: underline;
+    color: var(--pd-mock-link);
+    font-weight: 600;
+    text-decoration: none;
     cursor: pointer;
+  }
+  .pd-mock-link:hover {
+    text-decoration: underline;
   }
   @keyframes pd-mock-in {
     from {
-      transform: translateY(8px);
+      transform: translateX(16px);
     }
     to {
       transform: none;
