@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+
+  // @pipedrive/app-extensions-sdk is declared as a peerDependency; we keep a dev
+  // copy for its TypeScript types and for upcoming tests against the real SDK.
+  // It is not imported yet (the mock host implementation is still pending), so
+  // fallow would otherwise report it as an unused devDependency.
+  "ignoreDependencies": ["@pipedrive/app-extensions-sdk"],
+
+  "audit": {
+    // The Claude Code commit/push gate hook runs `fallow audit`. Gate only on
+    // issues this changeset introduces, not pre-existing ones.
+    "gate": "new-only"
+  }
+}
