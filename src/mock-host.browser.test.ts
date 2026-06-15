@@ -659,3 +659,31 @@ test('SHOW/HIDE_FLOATING_WINDOW emit a VISIBILITY event', async () => {
     ]),
   );
 });
+
+test('a disabled host does not listen for or reply to SDK commands', async () => {
+  host = startPipedriveMockHost({ enabled: false });
+
+  // Mimic what the real SDK's execute() posts, with a reply port.
+  const channel = new MessageChannel();
+  let replied = false;
+  channel.port1.onmessage = () => {
+    replied = true;
+  };
+  window.postMessage(
+    {
+      payload: {
+        command: 'show_snackbar',
+        args: { message: 'x' },
+        type: 'command',
+      },
+      id: 'dev-local',
+    },
+    '*',
+    [channel.port2],
+  );
+  await tick();
+  await tick();
+
+  expect(replied).toBe(false); // no listener registered → no reply
+  expect(document.querySelector('pipedrive-mock-host')).toBeNull(); // no UI
+});
