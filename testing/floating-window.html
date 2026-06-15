@@ -57,6 +57,25 @@
     </style>
   </head>
   <body>
+    <nav
+      style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 2147483647;
+        background: #11151c;
+        padding: 6px 12px;
+        font:
+          13px system-ui,
+          sans-serif;
+      "
+    >
+      <a href="index.html" style="color: #8ab4ff; margin-right: 14px">Panel</a>
+      <a href="modal.html" style="color: #8ab4ff; margin-right: 14px">Modal</a>
+      <a href="floating-window.html" style="color: #8ab4ff">Floating window</a>
+    </nav>
+
     <h1>Floating Window surface</h1>
     <p>
       The app lives inside
@@ -78,9 +97,10 @@
       <p><button id="resize" disabled>Resize</button></p>
     </div>
 
+    <!-- Real SDK (UMD) → window.AppExtensionsSDK -->
     <script src="../node_modules/@pipedrive/app-extensions-sdk/dist/index.umd.js"></script>
+    <!-- Mock Host (IIFE) → window.PipedriveMockHost -->
     <script src="../dist/index.global.js"></script>
-    <script src="boot.js"></script>
     <script>
       (async () => {
         const statusEl = document.getElementById('status');
@@ -88,7 +108,17 @@
         const wEl = document.getElementById('w');
         const hEl = document.getElementById('h');
 
-        const { sdk, Command, Event } = await window.bootMockHost();
+        const SDKGlobal = window.AppExtensionsSDK;
+        const AppExtensionsSDK =
+          typeof SDKGlobal === 'function' ? SDKGlobal : SDKGlobal.default;
+        const { Command, Event } = SDKGlobal;
+        const { startPipedriveMockHost } = window.PipedriveMockHost;
+
+        startPipedriveMockHost();
+        // Open at the floating window's maximum size (800 × 700).
+        const sdk = await new AppExtensionsSDK({
+          identifier: 'dev-local',
+        }).initialize({ size: { width: 800, height: 700 } });
 
         // Log the floating window's visibility whenever it changes.
         sdk.listen(Event.VISIBILITY, (r) => {
