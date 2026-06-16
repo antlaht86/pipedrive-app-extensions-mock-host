@@ -13,3 +13,4 @@ __screenshots__
 .agents
 .claude/skills
 skills-lock.json
+.env
