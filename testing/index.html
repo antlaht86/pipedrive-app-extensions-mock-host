@@ -21,9 +21,10 @@
         font:
           15px/1.5 system-ui,
           sans-serif;
-        max-width: 44rem;
-        margin: 2rem auto;
-        padding: 0 1rem;
+        /* Panel is pinned to the far-left edge (see #surface), like Pipedrive's
+           sidebar; the page copy sits to its right. */
+        margin: 0;
+        padding: 3rem 1.5rem 1.5rem 26rem;
         color: #1a1a1a;
       }
       h1 {
@@ -94,7 +95,18 @@
       Command and Event is wired below; results append to the log.
     </p>
 
-    <div class="pd-mock-panel" id="surface" style="padding: 14px">
+    <div
+      class="pd-mock-panel"
+      id="surface"
+      style="
+        position: fixed;
+        left: 0;
+        top: 2rem;
+        padding: 14px;
+        box-sizing: border-box;
+        overflow: auto;
+      "
+    >
       <h2>Commands</h2>
       <button data-cmd="snackbar">Snackbar</button>
       <button data-cmd="confirmation">Confirmation</button>
