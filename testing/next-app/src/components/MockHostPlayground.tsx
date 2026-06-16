@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import {
-  startPipedriveMockHost,
-  type MockHost,
-} from 'pipedrive-app-extensions-mock-host';
+// Type-only import: erased at compile time, so it pulls no runtime code into
+// the bundle. The host itself is loaded with a dev-gated dynamic import below,
+// keeping this development-only package out of any production build.
+import type { MockHost } from 'pipedrive-app-extensions-mock-host';
 import AppExtensionsSDK, {
   Color,
   Command,
@@ -137,19 +137,32 @@ export default function MockHostPlayground({
     setLog((l) => [{ kind, line }, ...l].slice(0, 200));
 
   useEffect(() => {
-    const host = startPipedriveMockHost({
-      customModals: { 'demo-modal': '/custom-modal' },
-    });
-    hostRef.current = host;
-
-    // Theme the host's shadow-DOM UI to match the console.
-    const el = document.querySelector<HTMLElement>('pipedrive-mock-host');
-    if (el) {
-      for (const [k, v] of Object.entries(HOST_THEME)) el.style.setProperty(k, v);
-    }
+    // The mock host is a development-only tool. `process.env.NODE_ENV` is
+    // inlined at build time, so in a production build this whole branch is dead
+    // code and Turbopack drops the dynamic import — the package never ships.
+    if (process.env.NODE_ENV === 'production') return;
 
     let cancelled = false;
+    let host: MockHost | null = null;
+
     void (async () => {
+      const { startPipedriveMockHost } = await import(
+        'pipedrive-app-extensions-mock-host'
+      );
+      if (cancelled) return;
+
+      host = startPipedriveMockHost({
+        customModals: { 'demo-modal': '/custom-modal' },
+      });
+      hostRef.current = host;
+
+      // Theme the host's shadow-DOM UI to match the console.
+      const el = document.querySelector<HTMLElement>('pipedrive-mock-host');
+      if (el) {
+        for (const [k, v] of Object.entries(HOST_THEME))
+          el.style.setProperty(k, v);
+      }
+
       const sdk = await new AppExtensionsSDK({
         identifier: 'dev-local',
       }).initialize({ size: cfg.size });
@@ -171,7 +184,7 @@ export default function MockHostPlayground({
 
     return () => {
       cancelled = true;
-      host.teardown();
+      host?.teardown();
       sdkRef.current = null;
       hostRef.current = null;
     };
