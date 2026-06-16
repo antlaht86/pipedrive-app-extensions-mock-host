@@ -15,7 +15,7 @@ Vue, Next.js, or plain vanilla JS.
 It does **not** replace the SDK. You keep using the real
 `@pipedrive/app-extensions-sdk`; this is the host it connects to.
 
-![App Extension running on localhost with the mock host rendering a surface header and a snackbar.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/hero-panel-snackbar.png)
+![The mock host running on localhost: a Custom Panel surface with a "Your app renders here" placeholder and header bar, a snackbar reading "MOCK Deal saved!" in the corner, and the Dev Tool's Active Log showing the app's `show_snackbar` command.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/hero-panel-snackbar.png)
 
 ## How it works
 
@@ -278,7 +278,7 @@ const { windowWidth, windowHeight } = await sdk.execute(Command.GET_METADATA);
 const { token } = await sdk.execute(Command.GET_SIGNED_TOKEN);
 ```
 
-![A mock-host confirmation dialog rendered over a dimmed Custom Panel.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/snackbar-confirmation.png)
+![A mock-host confirmation dialog ("Delete this deal?" with Cancel and Delete buttons) centred over the dimmed playground, with the Dev Tool's Active Log showing the app's `show_confirmation` command.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/snackbar-confirmation.png)
 
 ## Surfaces
 
@@ -353,6 +353,8 @@ needed, it appears as soon as the host starts. It docks to a corner
 (`bottom-left` by default) and can be collapsed to a compact launcher. It has two
 columns: **Controls** on the left, the **Active Log** on the right.
 
+![The mock host's Dev Tool docked in the bottom-right corner of the Custom Panel page. The app surface on the left is an empty "Your app renders here" placeholder; the Dev Tool shows a green "Mock host" header, a Controls column (Theme, Visibility, Page, Resize) and an Active Log listing the app's `initialize` command.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/dev-tool-panel.png)
+
 The **Controls** drive the host the way Pipedrive would — they emit Events to your
 App Extension and resize the surface (the Dev Tool never sends Commands; only the
 app can):
@@ -370,12 +372,16 @@ controls appear only while a Floating Window is the active surface, and the Dev
 Tool tracks the DOM so it stays in sync as your framework mounts and unmounts the
 surface wrapper.
 
+![The Dev Tool on the Floating Window page. Because a floating window is the active surface, the Controls column now also shows the Focus mode and Floating window toggles that stay hidden on the panel and modal pages.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/dev-tool-floating-window.png)
+
 The **Active Log** records activity, newest-first, each entry tagged with its
 direction: the Commands the App Extension sent (e.g.
 `app → host command: show_snackbar …`), the Tracks it fired, the Events the host
 pushed back (e.g. `host → app event: visibility …` — including the user-invoked
 `VISIBILITY` fired when you collapse the panel), and the Dev Tool's own actions
 (e.g. `dev tool action: resize …`). The panel is capped in height and scrolls.
+
+![The Dev Tool in its default bottom-left corner alongside a centred Custom Modal. The modal surface is an empty "Your app renders here" placeholder over a dimmed backdrop, and the Focus mode / Floating window controls are absent because the active surface is a modal.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/dev-tool-modal.png)
 
 Choose the corner, or turn it off entirely:
 
@@ -393,21 +399,22 @@ const host = startPipedriveMockHost();
 host.devTool.setPosition('top-right'); // bottom-left | bottom-right | top-left | top-right
 ```
 
-> A few refinements are still in progress (a log show/hide toggle, browser-mode
-> tests) — see
-> [`docs/plans/2026-06-16-dev-tool-design.md`](./docs/plans/2026-06-16-dev-tool-design.md).
-
 ## Examples
 
 The [`testing/`](./testing/) folder contains ready-to-run examples covering every
 command, event, and surface:
 
-- **Vanilla HTML playground** — load the built bundles with no bundler:
+- **Vanilla HTML playground** — load the built bundles with no bundler. Each
+  surface is a "Your app renders here" placeholder, so the **Dev Tool** is what
+  you drive; the in-page buttons fire the app-side Commands the Dev Tool can't
+  send:
   - [`testing/index.html`](./testing/index.html) — the **Custom Panel** surface,
-    with a button for every command and event.
-  - [`testing/modal.html`](./testing/modal.html) — the **Custom Modal** surface.
+    with an in-page button for every command and event.
+  - [`testing/modal.html`](./testing/modal.html) — the **Custom Modal** surface
+    (resize it from the Dev Tool).
   - [`testing/floating-window.html`](./testing/floating-window.html) — the
-    **Floating Window** surface (try focus mode).
+    **Floating Window** surface; resize it and toggle focus mode / visibility
+    from the Dev Tool, or fire the show/hide Commands from the in-page buttons.
   - [`testing/custom-modal.html`](./testing/custom-modal.html) — the page loaded
     inside a custom modal's iframe.
 
