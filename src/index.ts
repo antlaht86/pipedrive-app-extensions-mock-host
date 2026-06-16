@@ -121,8 +121,10 @@ const SURFACE_BOUNDS: Record<
   'pd-mock-modal': { width: [320, Infinity], height: [120, Infinity] },
   'pd-mock-floating-window': { width: [200, 800], height: [70, 700] },
 };
+// A surface is identified by class (`pd-mock-panel`) OR id (`id="pd-mock-panel"`).
+// The id form gets the same behaviour without the class-based host styles.
 const SURFACE_SELECTOR = Object.keys(SURFACE_BOUNDS)
-  .map((cls) => `.${cls}`)
+  .map((cls) => `.${cls}, #${cls}`)
   .join(', ');
 const outOfRange = (value: number, min: number, max: number): boolean =>
   value < min || value > max;
@@ -133,7 +135,9 @@ const resolveMax = (max: number, viewport: number): number =>
 const surfaceName = (cls: string): string => cls.replace(/^pd-mock-/, '');
 // The bounds key (class) for an element, or undefined if it is not a surface.
 const surfaceTypeOf = (el: HTMLElement): string | undefined =>
-  Object.keys(SURFACE_BOUNDS).find((cls) => el.classList.contains(cls));
+  Object.keys(SURFACE_BOUNDS).find(
+    (cls) => el.classList.contains(cls) || el.id === cls,
+  );
 
 // Scoped to the shadow root — a calm, grey, clearly-a-mock surface. The palette
 // lives in CSS custom properties on :host so themes can override it later.
@@ -842,10 +846,10 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // floating window; the caller then replies without acting.
   const requireFloatingWindow = (command: string): boolean => {
     const active = resolveSurface();
-    if (active.classList.contains('pd-mock-floating-window')) {
+    const type = surfaceTypeOf(active);
+    if (type === 'pd-mock-floating-window') {
       return true;
     }
-    const type = surfaceTypeOf(active);
     console.error(
       `[pipedrive-mock-host] ${command} ignored: active surface is "${
         type ? surfaceName(type) : 'none'
@@ -1021,12 +1025,8 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
           reply();
           break;
         }
-        const fw = document.querySelector<HTMLElement>(
-          '.pd-mock-floating-window',
-        );
-        if (fw) {
-          fw.style.display = visible ? '' : 'none';
-        }
+        // Toggle the active floating-window surface (matched by class or id).
+        resolveSurface().style.display = visible ? '' : 'none';
         // Toggling the window's visibility fires a VISIBILITY event.
         emitEvent(EVENT_VISIBILITY, {
           is_visible: visible,

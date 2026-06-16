@@ -248,10 +248,18 @@ function renderPanel(): HTMLElement {
   return renderSurface('pd-mock-panel');
 }
 
+// A surface identified by id rather than class — no host styles, same behaviour.
+function renderSurfaceById(id: string): HTMLElement {
+  const el = document.createElement('div');
+  el.id = id;
+  document.body.appendChild(el);
+  return el;
+}
+
 afterEach(() => {
   document
     .querySelectorAll(
-      '.pd-mock-panel, .pd-mock-modal, .pd-mock-floating-window',
+      '.pd-mock-panel, .pd-mock-modal, .pd-mock-floating-window, #pd-mock-panel, #pd-mock-modal, #pd-mock-floating-window',
     )
     .forEach((el) => el.remove());
 });
@@ -314,6 +322,67 @@ test('GET_METADATA returns the panel surface dimensions', async () => {
   const meta = await sdk.execute(Command.GET_METADATA);
 
   expect(meta).toEqual({ windowWidth: 385, windowHeight: 300 });
+});
+
+// Surface identified by id (no host styles) — same behaviour as a class.
+
+test('a surface identified by id is recognized for RESIZE bounds', async () => {
+  host = startPipedriveMockHost();
+  renderSurfaceById('pd-mock-floating-window');
+  const sdk = await createSdk();
+  const errors: string[] = [];
+  const spy = vi
+    .spyOn(console, 'error')
+    .mockImplementation((...a: unknown[]) => errors.push(a.join(' ')));
+
+  await sdk.execute(Command.RESIZE, { width: 9000, height: 240 });
+
+  spy.mockRestore();
+  expect(
+    errors.some(
+      (e) => e.includes('RESIZE rejected') && e.includes('floating-window'),
+    ),
+  ).toBe(true);
+});
+
+test('a floating-window-only command works on an id-identified floating window', async () => {
+  host = startPipedriveMockHost();
+  renderSurfaceById('pd-mock-floating-window');
+  const sdk = await createSdk();
+  const errors: string[] = [];
+  const spy = vi
+    .spyOn(console, 'error')
+    .mockImplementation((...a: unknown[]) => errors.push(a.join(' ')));
+
+  await sdk.execute(Command.SET_NOTIFICATION, { number: 3 });
+
+  spy.mockRestore();
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  expect(errors).toHaveLength(0);
+  expect(ui.getByText('3')).toBeVisible();
+});
+
+test('HIDE/SHOW_FLOATING_WINDOW toggle an id-identified floating window', async () => {
+  host = startPipedriveMockHost();
+  const fw = renderSurfaceById('pd-mock-floating-window');
+  const sdk = await createSdk();
+
+  await sdk.execute(Command.HIDE_FLOATING_WINDOW, {});
+  expect(fw.style.display).toBe('none');
+
+  await sdk.execute(Command.SHOW_FLOATING_WINDOW, {});
+  expect(fw.style.display).toBe('');
+});
+
+test('an id-identified surface gets no host styles (functionality, not styling)', async () => {
+  host = startPipedriveMockHost();
+  const byId = renderSurfaceById('pd-mock-panel');
+  const byClass = renderPanel();
+  await createSdk();
+
+  // The class form gets the injected fixed panel width; the id form does not.
+  expect(byClass.offsetWidth).toBe(385);
+  expect(byId.offsetWidth).not.toBe(385);
 });
 
 // Custom Modal surface wrapper (see ADR-0006).

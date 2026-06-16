@@ -65,6 +65,15 @@ read from the matched element's class. One active surface is assumed per host;
 when more than one wrapper is present, the consumer disambiguates with
 `config.surface`.
 
+> **Extended 2026-06-16 — match by class _or_ id.** A surface is also recognized
+> when the host class is used as the element's `id` (`<div id="pd-mock-panel">`).
+> Both `resolveSurface` (the selector) and `surfaceTypeOf` (class _or_ `el.id`)
+> honour either form. The injected styles remain class-only, so the id form gives
+> a consumer the **behaviour** (RESIZE bounds, `GET_METADATA`, the floating-window
+> commands) **without the host's visual styling** — they style the element
+> themselves. All surface-type checks route through `surfaceTypeOf`, so the rule
+> lives in one place.
+
 ## Consequences
 
 - Dimensions are authoritative as of the Pipedrive docs (checked 2026-06): modal
