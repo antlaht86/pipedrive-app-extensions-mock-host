@@ -435,6 +435,29 @@ test('adding a floating window reveals the focus control reactively', async () =
   fw.remove();
 });
 
+test('devTool startCollapsed starts the dev tool collapsed', () => {
+  host = startPipedriveMockHost({ devTool: { startCollapsed: true } });
+
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  expect(tool?.getAttribute('data-collapsed')).toBe('true');
+
+  const toggle = tool?.querySelector<HTMLButtonElement>(
+    'button[aria-expanded]',
+  );
+  expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+});
+
+test('the dev tool starts open by default', () => {
+  host = startPipedriveMockHost();
+
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  expect(tool?.getAttribute('data-collapsed')).not.toBe('true');
+});
+
 test('the dev tool can be collapsed and expanded via its toggle', () => {
   host = startPipedriveMockHost();
 

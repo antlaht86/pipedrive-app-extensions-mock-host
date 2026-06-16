@@ -100,17 +100,17 @@ In a plain HTML page, load the SDK's UMD build and this package's IIFE build
 `startPipedriveMockHost(config?)` accepts a `MockHostConfig`. Every field is
 optional:
 
-| Option           | Type                                                         | Default              | Purpose                                                                                                                                      |
-| ---------------- | ------------------------------------------------------------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`        | `boolean`                                                    | `true`               | Turn the host off without removing the call (e.g. `{ enabled: import.meta.env.DEV }`). When `false`, returns an inert handle.                |
-| `theme`          | `'light' \| 'dark'`                                          | `'light'`            | Visual theme for the host's own mock UI.                                                                                                     |
-| `onConfirmation` | `(args) => boolean \| Promise<boolean>`                      | —                    | Headless override for `SHOW_CONFIRMATION`; return whether the user confirmed. Omit to render an interactive dialog.                          |
-| `getSignedToken` | `() => string \| Promise<string>`                            | `'dev-signed-token'` | Provides the token returned by `GET_SIGNED_TOKEN`. Return a real dev JWT to exercise your backend's verify path.                             |
-| `onModal`        | `(attrs) => ModalResult \| Promise<ModalResult>`             | —                    | Headless override for `OPEN_MODAL`; return the modal result instead of rendering a dialog.                                                   |
-| `customModals`   | `Record<string, string> \| ((attrs) => string \| undefined)` | —                    | Maps a custom-modal `action_id` to the URL the modal iframe should load.                                                                     |
-| `appName`        | `string`                                                     | `'App Extension'`    | Name shown in the surface header bar the host injects onto each surface.                                                                     |
-| `appIcon`        | `string`                                                     | a generic glyph      | Icon shown in the surface header bar — a URL (rendered as an `<img>`) or a short glyph/emoji.                                                |
-| `devTool`        | `boolean \| { position? }`                                   | `true`               | Show the host's interactive Dev Tool overlay (see [Dev Tool](#dev-tool)). Pass `false` to omit it, or `{ position }` to dock it to a corner. |
+| Option           | Type                                                         | Default              | Purpose                                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`        | `boolean`                                                    | `true`               | Turn the host off without removing the call (e.g. `{ enabled: import.meta.env.DEV }`). When `false`, returns an inert handle.                           |
+| `theme`          | `'light' \| 'dark'`                                          | `'light'`            | Visual theme for the host's own mock UI.                                                                                                                |
+| `onConfirmation` | `(args) => boolean \| Promise<boolean>`                      | —                    | Headless override for `SHOW_CONFIRMATION`; return whether the user confirmed. Omit to render an interactive dialog.                                     |
+| `getSignedToken` | `() => string \| Promise<string>`                            | `'dev-signed-token'` | Provides the token returned by `GET_SIGNED_TOKEN`. Return a real dev JWT to exercise your backend's verify path.                                        |
+| `onModal`        | `(attrs) => ModalResult \| Promise<ModalResult>`             | —                    | Headless override for `OPEN_MODAL`; return the modal result instead of rendering a dialog.                                                              |
+| `customModals`   | `Record<string, string> \| ((attrs) => string \| undefined)` | —                    | Maps a custom-modal `action_id` to the URL the modal iframe should load.                                                                                |
+| `appName`        | `string`                                                     | `'App Extension'`    | Name shown in the surface header bar the host injects onto each surface.                                                                                |
+| `appIcon`        | `string`                                                     | a generic glyph      | Icon shown in the surface header bar — a URL (rendered as an `<img>`) or a short glyph/emoji.                                                           |
+| `devTool`        | `boolean \| { position?, startCollapsed? }`                  | `true`               | Show the host's interactive Dev Tool overlay (see [Dev Tool](#dev-tool)). Pass `false` to omit it, or an object to set its corner / start it collapsed. |
 
 ### Theme and header branding
 
@@ -382,6 +382,7 @@ Choose the corner, or turn it off entirely:
 ```ts
 startPipedriveMockHost({ devTool: false }); // off
 startPipedriveMockHost({ devTool: { position: 'bottom-right' } }); // pick a corner
+startPipedriveMockHost({ devTool: { startCollapsed: true } }); // start collapsed
 ```
 
 To move it at runtime — e.g. a different corner per view in a single-page app —
@@ -392,8 +393,8 @@ const host = startPipedriveMockHost();
 host.devTool.setPosition('top-right'); // bottom-left | bottom-right | top-left | top-right
 ```
 
-> A few refinements are still in progress (a log show/hide toggle and
-> `startCollapsed` option, browser-mode tests) — see
+> A few refinements are still in progress (a log show/hide toggle, browser-mode
+> tests) — see
 > [`docs/plans/2026-06-16-dev-tool-design.md`](./docs/plans/2026-06-16-dev-tool-design.md).
 
 ## Examples

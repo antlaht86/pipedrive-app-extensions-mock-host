@@ -92,6 +92,8 @@ export interface MockHostConfig {
     | {
         /** Corner the Dev Tool anchors to. Defaults to `'bottom-left'`. */
         position?: DevToolPosition;
+        /** Start the Dev Tool collapsed to its launcher. Defaults to `false`. */
+        startCollapsed?: boolean;
       };
 }
 
@@ -907,6 +909,14 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     });
     header.appendChild(toggle);
     devToolEl.appendChild(header);
+
+    // Start collapsed if requested (the toggle's click logic reads this attr).
+    if (devToolConfig.startCollapsed) {
+      devToolEl.setAttribute('data-collapsed', 'true');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-label', 'Expand dev tool');
+      toggle.textContent = '+';
+    }
 
     // Two columns: Controls on the left, the Active Log on the right.
     const body = document.createElement('div');
