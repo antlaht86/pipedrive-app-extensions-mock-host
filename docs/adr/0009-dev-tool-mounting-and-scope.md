@@ -56,10 +56,11 @@ actually sends them.
 ## Consequences
 
 - The Dev Tool is surface-type aware: a `MutationObserver` tracks when a Surface
-  wrapper is added or removed, so the Focus mode control is shown only while a
-  Floating Window is active and Resize is clamped to the active surface's bounds
-  (or disabled, "no surface detected", when the host has fallen back to
-  `document.body`). The observer is disconnected on `teardown()`.
+  wrapper is added, removed, or has its `pd-mock-*` class/id toggled, so the Focus
+  mode control is shown only while a Floating Window is active and Resize is
+  clamped to the active surface's bounds (or disabled, "no surface detected",
+  when the host has fallen back to `document.body`). The observer is disconnected
+  on `teardown()`.
 - The Active Log records more than `getCalls()` does today: outbound Events and
   dev diagnostics are not currently captured anywhere, and the log adds them
   alongside Commands and Tracks, each tagged with direction and a timestamp.

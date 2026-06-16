@@ -58,13 +58,13 @@ light-DOM node. A dedicated `ensureDevTool()` builder, idempotent, created durin
 
 ## Controls
 
-| Control | Mechanism | Notes |
-| --- | --- | --- |
-| **Resize** (width + height inputs) | Host sets the active Surface's dimensions | Reuses the real `RESIZE` bounds validation (`SURFACE_BOUNDS`); out-of-range rejected with the same diagnostic. Disabled when no Surface is active. |
-| **Emit `USER_SETTINGS_CHANGE`** | `emitEvent` | Theme selector `light` / `dark` → `{ theme }`. |
-| **Emit `VISIBILITY`** | `emitEvent` | `{ is_visible, context: { invoker } }`; `invoker` selector `user` / `command`. |
-| **Emit `PAGE_VISIBILITY_STATE`** | `emitEvent` | `{ state }` selector `visible` / `hidden`. |
-| **Focus mode** toggle | Host disables the floating window's close (X) | Shown only when the active Surface is a Floating Window. |
+| Control                            | Mechanism                                     | Notes                                                                                                                                              |
+| ---------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Resize** (width + height inputs) | Host sets the active Surface's dimensions     | Reuses the real `RESIZE` bounds validation (`SURFACE_BOUNDS`); out-of-range rejected with the same diagnostic. Disabled when no Surface is active. |
+| **Emit `USER_SETTINGS_CHANGE`**    | `emitEvent`                                   | Theme selector `light` / `dark` → `{ theme }`.                                                                                                     |
+| **Emit `VISIBILITY`**              | `emitEvent`                                   | `{ is_visible, context: { invoker } }`; `invoker` selector `user` / `command`.                                                                     |
+| **Emit `PAGE_VISIBILITY_STATE`**   | `emitEvent`                                   | `{ state }` selector `visible` / `hidden`.                                                                                                         |
+| **Focus mode** toggle              | Host disables the floating window's close (X) | Shown only when the active Surface is a Floating Window.                                                                                           |
 
 Event payloads match the installed SDK types exactly (`EventResponse` in
 `dist/types.d.ts`): `USER_SETTINGS_CHANGE` carries only `theme`, so there is no
@@ -77,9 +77,12 @@ The Dev Tool has no Command-firing buttons (`SHOW_SNACKBAR`, `OPEN_MODAL`,
 
 `resolveSurface()` is computed on demand and is not reactive, and frameworks
 mount/unmount the Surface wrapper dynamically. The Dev Tool therefore keeps a
-`MutationObserver` on `document.body` (`childList` + `subtree`) that recomputes
-the active surface type (via `surfaceTypeOf`) whenever a Surface wrapper is added
-or removed, and updates the controls:
+`MutationObserver` on `document.body` (`childList` + `subtree`, plus
+`attributes` filtered to `['class', 'id']`) that recomputes the active surface
+type (via `surfaceTypeOf`) and updates the controls. The attribute filter matters
+because a framework may toggle the `pd-mock-panel` class on an **existing**
+element rather than adding/removing the node — a `childList`-only observer would
+miss that. The resulting control state:
 
 - **Floating Window active** → Focus mode toggle visible; Resize bounds = FW.
 - **Panel / Modal active** → Focus mode hidden; Resize bounds = that type's.
@@ -89,33 +92,48 @@ or removed, and updates the controls:
 A small header line shows the current active surface type so the developer knows
 what the controls apply to.
 
+The observer watches the whole `document.body` subtree, so it fires on every DOM
+mutation, but each recompute is one cheap `querySelector(SURFACE_SELECTOR)` and
+an idempotent control update — acceptable for a dev-only tool. (To debounce
+later if needed.)
+
 ## Active Log
 
 A running, bounded record of what crosses the host boundary. Entry types, each
 tagged with a direction and timestamp and an expandable JSON payload:
 
-| Type | Direction | Content |
-| --- | --- | --- |
-| Command | app → host | name, args, the reply value |
-| Track | app → host | name (fire-and-forget) |
-| Event | host → app | name, data (host-fired and Dev-Tool-fired alike) |
-| Diagnostic | host | the dev-only warnings (inapplicable command, out-of-range resize, …) |
+| Type       | Direction  | Content                                                              |
+| ---------- | ---------- | -------------------------------------------------------------------- |
+| Command    | app → host | name, args, the reply value                                          |
+| Track      | app → host | name (fire-and-forget)                                               |
+| Event      | host → app | name, data (host-fired and Dev-Tool-fired alike)                     |
+| Diagnostic | host       | the dev-only warnings (inapplicable command, out-of-range resize, …) |
 
 - **Ring buffer** (cap ~200 entries) so it cannot grow unbounded.
 - **Capture is always on** (cheap); the `log` toggle controls whether the panel
   is shown and live-updating. Toggling back on reveals retained history.
 - Outbound Events and Diagnostics are **new** capture points — today only
   Commands and Tracks land in `calls[]`. Plan: widen the internal record to a
-  richer entry buffer and derive `getCalls()` from the Command entries, so
-  `getCalls()` keeps its current `{ command, args }[]` contract unchanged.
+  richer entry buffer and derive `getCalls()` from it. **`getCalls()` today
+  returns both Commands and Tracks** (`src/index.ts` pushes a Track into `calls[]`
+  as `{ command: <event>, args: undefined }`), so the derivation must include
+  **both Command and Track** entries — deriving from Command entries alone would
+  silently drop Tracks and break the existing `getCalls()` contract. Events and
+  Diagnostics stay out of `getCalls()` (log-only), keeping its `{ command, args }[]`
+  shape unchanged. A regression test pins the "Tracks still appear in getCalls()"
+  behaviour.
 
 ## Visual / layout
 
 - Anchored to `devTool.position` (default `bottom-left`); `position: fixed`.
 - Collapsible: a compact open panel ↔ a small launcher button (e.g. "🛠 mock").
   `startCollapsed` picks the initial state.
-- `z-index` at the snackbar level; distinct corner avoids overlap. A centred
-  modal may transiently cover it — acceptable; collapse or close the modal.
+- `z-index` at the snackbar level; the default `bottom-left` corner avoids
+  overlap. A centred modal may transiently cover it — acceptable; collapse or
+  close the modal. If the developer overrides `position` to `bottom-right`, the
+  Dev Tool shares both the corner **and** the z-index with the snackbar, so paint
+  order falls to DOM order — a documented consequence of an explicit override,
+  not something the tool tries to resolve.
 - Follows `config.theme` (light/dark), same as the rest of the host UI.
 - No drag/resize of the tool itself (YAGNI).
 
@@ -131,10 +149,15 @@ tagged with a direction and timestamp and an expandable JSON payload:
   unless FW; Resize disabled with no surface; emit buttons call `emitEvent` with
   the correct SDK-shaped payloads; Active Log records each entry type with the
   right direction; ring buffer caps; `log: false` hides the panel; `devTool:
-  false` renders nothing; production/SSR/`enabled:false` render nothing.
+false` renders nothing; production/SSR/`enabled:false` render nothing.
+- **Regression**: `getCalls()` still returns **both** Commands and Tracks after
+  the internal buffer is widened (guards against the derive-from-Commands-only
+  trap); Events and Diagnostics do **not** leak into `getCalls()`.
 - **browser (Chromium)**: a real SDK `listen(...)` receives Dev-Tool-emitted
   events; resizing via the Dev Tool changes the surface and is reflected by
-  `GET_METADATA`; MutationObserver updates controls when a wrapper is added.
+  `GET_METADATA`; the controls update both when a Surface wrapper node is
+  added/removed **and** when the `pd-mock-*` class is toggled on an existing
+  element (exercises the `attributes` observer filter).
 
 ## Out of scope
 
