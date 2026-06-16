@@ -112,7 +112,7 @@ const DEFAULT_SIGNED_TOKEN = 'dev-signed-token';
 
 // Per-type RESIZE bounds [min, max] in px (ADR-0006). Panel width is fixed
 // (min === max), so RESIZE can never change it. Types are added here as their
-// wrappers land; the surface selector and clamping derive from these keys.
+// wrappers land; the surface selector and size validation derive from these keys.
 const SURFACE_BOUNDS: Record<
   string,
   { width: [number, number]; height: [number, number] }
@@ -124,11 +124,16 @@ const SURFACE_BOUNDS: Record<
 const SURFACE_SELECTOR = Object.keys(SURFACE_BOUNDS)
   .map((cls) => `.${cls}`)
   .join(', ');
-const clampToRange = (value: number, [min, max]: [number, number]): number =>
-  Math.min(max, Math.max(min, value));
+const outOfRange = (value: number, min: number, max: number): boolean =>
+  value < min || value > max;
 // A modal's max is the live viewport: bounds use Infinity, resolved here.
 const resolveMax = (max: number, viewport: number): number =>
   max === Infinity ? viewport : max;
+// Human-readable surface name for diagnostics, e.g. 'pd-mock-panel' → 'panel'.
+const surfaceName = (cls: string): string => cls.replace(/^pd-mock-/, '');
+// The bounds key (class) for an element, or undefined if it is not a surface.
+const surfaceTypeOf = (el: HTMLElement): string | undefined =>
+  Object.keys(SURFACE_BOUNDS).find((cls) => el.classList.contains(cls));
 
 // Scoped to the shadow root — a calm, grey, clearly-a-mock surface. The palette
 // lives in CSS custom properties on :host so themes can override it later.
@@ -765,37 +770,63 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   const resolveSurface = (): HTMLElement =>
     document.querySelector<HTMLElement>(SURFACE_SELECTOR) ?? document.body;
 
-  // Apply a size to the current surface, clamping each dimension to the surface
-  // type's bounds. Shared by RESIZE and the initial size from initialize().
-  const applySize = (size?: { width?: number; height?: number }): void => {
+  // Apply a size to the current surface. Each requested dimension must fall
+  // within the surface type's bounds; if any is out of range the whole resize
+  // is rejected (nothing applied) and a console error explains why — mirroring
+  // real Pipedrive, which simply ignores an out-of-bounds size. Shared by RESIZE
+  // and the initial size from initialize(). `context` names the caller for the
+  // error message. Returns whether the size was applied.
+  const applySize = (
+    size: { width?: number; height?: number } | undefined,
+    context: string,
+  ): boolean => {
     if (!size) {
-      return;
+      return true;
     }
     const surface = resolveSurface();
-    const type = Object.keys(SURFACE_BOUNDS).find((cls) =>
-      surface.classList.contains(cls),
-    );
+    const type = surfaceTypeOf(surface);
     const bounds = type ? SURFACE_BOUNDS[type] : undefined;
-    if (size.width != null) {
-      surface.style.width = `${
-        bounds
-          ? clampToRange(size.width, [
-              bounds.width[0],
-              resolveMax(bounds.width[1], window.innerWidth),
-            ])
-          : size.width
-      }px`;
+    // Unknown surface (body fallback): no bounds to enforce, apply as-is.
+    if (!bounds) {
+      if (size.width != null) surface.style.width = `${size.width}px`;
+      if (size.height != null) surface.style.height = `${size.height}px`;
+      return true;
     }
-    if (size.height != null) {
-      surface.style.height = `${
-        bounds
-          ? clampToRange(size.height, [
-              bounds.height[0],
-              resolveMax(bounds.height[1], window.innerHeight),
-            ])
-          : size.height
-      }px`;
+
+    // Panel width is fixed (min === max), so the dimension is not resizable —
+    // a requested width is ignored rather than treated as out of range.
+    const widthFixed = bounds.width[0] === bounds.width[1];
+    const widthMax = resolveMax(bounds.width[1], window.innerWidth);
+    const heightMax = resolveMax(bounds.height[1], window.innerHeight);
+    const errors: string[] = [];
+    if (
+      size.width != null &&
+      !widthFixed &&
+      outOfRange(size.width, bounds.width[0], widthMax)
+    ) {
+      errors.push(
+        `width ${size.width}px is outside ${bounds.width[0]}–${widthMax}px`,
+      );
     }
+    if (
+      size.height != null &&
+      outOfRange(size.height, bounds.height[0], heightMax)
+    ) {
+      errors.push(
+        `height ${size.height}px is outside ${bounds.height[0]}–${heightMax}px`,
+      );
+    }
+    if (errors.length > 0) {
+      console.error(
+        `[pipedrive-mock-host] ${context} rejected: ${errors.join('; ')} for the ${surfaceName(type!)} surface.`,
+      );
+      return false;
+    }
+
+    if (size.width != null && !widthFixed)
+      surface.style.width = `${size.width}px`;
+    if (size.height != null) surface.style.height = `${size.height}px`;
+    return true;
   };
 
   const onMessage = (event: MessageEvent): void => {
@@ -847,7 +878,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         const args = payload.args as
           | { size?: { width?: number; height?: number } }
           | undefined;
-        applySize(args?.size);
+        applySize(args?.size, 'initialize');
         reply();
         break;
       }
@@ -879,7 +910,10 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         break;
       }
       case COMMAND_RESIZE: {
-        applySize(payload.args as { width?: number; height?: number });
+        applySize(
+          payload.args as { width?: number; height?: number },
+          'RESIZE',
+        );
         reply();
         break;
       }
@@ -935,6 +969,24 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
       case COMMAND_SHOW_FLOATING_WINDOW:
       case COMMAND_HIDE_FLOATING_WINDOW: {
         const visible = payload.command === COMMAND_SHOW_FLOATING_WINDOW;
+        const command = visible
+          ? 'SHOW_FLOATING_WINDOW'
+          : 'HIDE_FLOATING_WINDOW';
+        const active = resolveSurface();
+        // The floating window only exists alongside a floating-window surface;
+        // on a panel/modal it is unavailable. Report it and do nothing else
+        // (no DOM change, no misleading VISIBILITY event) — but still reply so
+        // the SDK promise resolves.
+        if (!active.classList.contains('pd-mock-floating-window')) {
+          const type = surfaceTypeOf(active);
+          console.error(
+            `[pipedrive-mock-host] ${command} ignored: active surface is "${
+              type ? surfaceName(type) : 'none'
+            }", not a floating window.`,
+          );
+          reply();
+          break;
+        }
         const fw = document.querySelector<HTMLElement>(
           '.pd-mock-floating-window',
         );

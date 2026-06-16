@@ -274,26 +274,35 @@ test('RESIZE sets the panel height within the allowed range', async () => {
   expect(panel.offsetHeight).toBe(400);
 });
 
-test('RESIZE clamps the panel height to the 100–750px range', async () => {
+test('RESIZE rejects an out-of-range panel height, leaving it unchanged', async () => {
   host = startPipedriveMockHost();
   const panel = renderPanel();
   const sdk = await createSdk();
+
+  await sdk.execute(Command.RESIZE, { height: 400 });
 
   await sdk.execute(Command.RESIZE, { height: 900 });
-  expect(panel.offsetHeight).toBe(750);
+  expect(panel.offsetHeight).toBe(400);
 
   await sdk.execute(Command.RESIZE, { height: 40 });
-  expect(panel.offsetHeight).toBe(100);
+  expect(panel.offsetHeight).toBe(400);
 });
 
-test('RESIZE ignores width — the panel stays at the fixed width', async () => {
+test('RESIZE ignores a panel width without erroring; height still applies', async () => {
   host = startPipedriveMockHost();
   const panel = renderPanel();
   const sdk = await createSdk();
+  const errors: string[] = [];
+  const spy = vi
+    .spyOn(console, 'error')
+    .mockImplementation((...a: unknown[]) => errors.push(a.join(' ')));
 
   await sdk.execute(Command.RESIZE, { width: 600, height: 300 });
 
-  expect(panel.offsetWidth).toBe(385);
+  spy.mockRestore();
+  // Width is fixed, so it is ignored (not an out-of-range error); height applies.
+  expect([panel.offsetWidth, panel.offsetHeight]).toEqual([385, 300]);
+  expect(errors).toHaveLength(0);
 });
 
 test('GET_METADATA returns the panel surface dimensions', async () => {
@@ -317,35 +326,35 @@ test('a .pd-mock-modal wrapper gets the default modal size', async () => {
   expect([modal.offsetWidth, modal.offsetHeight]).toEqual([520, 400]);
 });
 
-test('RESIZE clamps the modal width to at least 320px', async () => {
+test('RESIZE rejects a modal below the minimum, leaving it unchanged', async () => {
   host = startPipedriveMockHost();
   const modal = renderSurface('pd-mock-modal');
   const sdk = await createSdk();
 
   await sdk.execute(Command.RESIZE, { width: 100, height: 300 });
 
-  expect(modal.offsetWidth).toBe(320);
+  // Atomic: the out-of-range width rejects the whole resize.
+  expect([modal.offsetWidth, modal.offsetHeight]).toEqual([520, 400]);
 });
 
-test('RESIZE clamps the modal height to at least 120px', async () => {
+test('RESIZE rejects a modal height below the minimum, leaving it unchanged', async () => {
   host = startPipedriveMockHost();
   const modal = renderSurface('pd-mock-modal');
   const sdk = await createSdk();
 
   await sdk.execute(Command.RESIZE, { width: 400, height: 50 });
 
-  expect(modal.offsetHeight).toBe(120);
+  expect([modal.offsetWidth, modal.offsetHeight]).toEqual([520, 400]);
 });
 
-test('RESIZE clamps the modal size to the viewport', async () => {
+test('RESIZE rejects a modal larger than the viewport, leaving it unchanged', async () => {
   host = startPipedriveMockHost();
   const modal = renderSurface('pd-mock-modal');
   const sdk = await createSdk();
 
   await sdk.execute(Command.RESIZE, { width: 9000, height: 9000 });
 
-  expect(modal.offsetWidth).toBe(window.innerWidth);
-  expect(modal.offsetHeight).toBe(window.innerHeight);
+  expect([modal.offsetWidth, modal.offsetHeight]).toEqual([520, 400]);
 });
 
 // Floating Window surface wrapper (see ADR-0006).
@@ -358,28 +367,89 @@ test('a .pd-mock-floating-window wrapper gets the default floating size', async 
   expect([fw.offsetWidth, fw.offsetHeight]).toEqual([320, 240]);
 });
 
-test('RESIZE clamps the floating window width to 200–800px', async () => {
+test('RESIZE rejects a floating window width outside 200–800px', async () => {
   host = startPipedriveMockHost();
   const fw = renderSurface('pd-mock-floating-window');
   const sdk = await createSdk();
 
   await sdk.execute(Command.RESIZE, { width: 100, height: 240 });
-  expect(fw.offsetWidth).toBe(200);
+  expect(fw.offsetWidth).toBe(320);
 
   await sdk.execute(Command.RESIZE, { width: 9000, height: 240 });
-  expect(fw.offsetWidth).toBe(800);
+  expect(fw.offsetWidth).toBe(320);
 });
 
-test('RESIZE clamps the floating window height to 70–700px', async () => {
+test('RESIZE rejects a floating window height outside 70–700px', async () => {
   host = startPipedriveMockHost();
   const fw = renderSurface('pd-mock-floating-window');
   const sdk = await createSdk();
 
   await sdk.execute(Command.RESIZE, { width: 320, height: 30 });
-  expect(fw.offsetHeight).toBe(70);
+  expect(fw.offsetHeight).toBe(240);
 
   await sdk.execute(Command.RESIZE, { width: 320, height: 9000 });
-  expect(fw.offsetHeight).toBe(700);
+  expect(fw.offsetHeight).toBe(240);
+});
+
+test('an out-of-range RESIZE logs one error with the surface, value and range', async () => {
+  host = startPipedriveMockHost();
+  renderSurface('pd-mock-floating-window');
+  const sdk = await createSdk();
+  const errors: string[] = [];
+  const spy = vi
+    .spyOn(console, 'error')
+    .mockImplementation((...a: unknown[]) => errors.push(a.join(' ')));
+
+  await sdk.execute(Command.RESIZE, { width: 9000, height: 240 });
+
+  spy.mockRestore();
+  expect(errors).toHaveLength(1);
+  expect(errors[0]).toContain('RESIZE rejected');
+  expect(errors[0]).toContain('width 9000px');
+  expect(errors[0]).toContain('200–800px');
+  expect(errors[0]).toContain('floating-window');
+});
+
+test('initialize rejects an out-of-range initial size with a console error', async () => {
+  host = startPipedriveMockHost();
+  const fw = renderSurface('pd-mock-floating-window');
+  const errors: string[] = [];
+  const spy = vi
+    .spyOn(console, 'error')
+    .mockImplementation((...a: unknown[]) => errors.push(a.join(' ')));
+
+  await new AppExtensionsSDK({
+    identifier: 'dev-local',
+    targetWindow: window,
+  }).initialize({ size: { width: 9000, height: 240 } });
+
+  spy.mockRestore();
+  expect(fw.offsetWidth).toBe(320);
+  expect(errors.some((e) => e.includes('initialize rejected'))).toBe(true);
+});
+
+test('SHOW_FLOATING_WINDOW on a non-floating-window surface errors and emits nothing', async () => {
+  host = startPipedriveMockHost();
+  renderPanel();
+  const sdk = await createSdk();
+  const visibility: Array<{ data?: unknown }> = [];
+  sdk.listen(Event.VISIBILITY, (r) => visibility.push(r));
+  await tick();
+  const errors: string[] = [];
+  const spy = vi
+    .spyOn(console, 'error')
+    .mockImplementation((...a: unknown[]) => errors.push(a.join(' ')));
+
+  // Resolves (does not hang) even though the command is not applicable.
+  await sdk.execute(Command.SHOW_FLOATING_WINDOW, {});
+
+  spy.mockRestore();
+  expect(
+    errors.some(
+      (e) => e.includes('SHOW_FLOATING_WINDOW') && e.includes('panel'),
+    ),
+  ).toBe(true);
+  expect(visibility).toHaveLength(0);
 });
 
 test('GET_METADATA returns the modal surface dimensions', async () => {

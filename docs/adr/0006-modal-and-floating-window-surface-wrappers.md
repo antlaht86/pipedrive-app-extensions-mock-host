@@ -17,8 +17,18 @@ windows resize in **both** dimensions, each clamped to its real Pipedrive bounds
 | Custom Modal    | 320px – viewport width                | 120px – viewport height |
 | Floating Window | 200–800px                             | 70–700px                |
 
-`RESIZE` reads the surface type from its class and clamps accordingly. The
-modal's maximum is the live viewport (`window.innerWidth`/`innerHeight`).
+`RESIZE` reads the surface type from its class. The modal's maximum is the live
+viewport (`window.innerWidth`/`innerHeight`).
+
+> **Superseded 2026-06-16 — reject, don't clamp.** Originally `RESIZE` *clamped*
+> an out-of-range dimension to the nearest bound. Real Pipedrive instead ignores
+> an out-of-bounds size (nothing happens), so the host now matches that: if any
+> requested dimension is outside its range the whole resize is **rejected**
+> (nothing applied) and a `console.error` names the surface, dimension, value and
+> allowed range. The same validation applies to the initial size from
+> `initialize({ size })`. The panel's fixed width is not a resizable dimension,
+> so a requested panel width is ignored (not an error). This is a dev-only
+> diagnostic; the bounds table above is unchanged.
 
 ## Self-positioning
 
