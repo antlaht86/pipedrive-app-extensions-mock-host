@@ -638,6 +638,12 @@ const DEV_TOOL_STYLES = `
     gap: 6px;
     font-size: 12px;
   }
+  /* Must beat the .pd-mock-dev-tool-control { display: flex } above — that class
+     rule otherwise overrides the UA [hidden] { display: none }, leaving gated
+     controls (focus mode, floating window) visible on non-floating surfaces. */
+  .pd-mock-dev-tool-control[hidden] {
+    display: none;
+  }
   .pd-mock-dev-tool-control-label {
     flex: 0 0 4.5rem;
     color: var(--pd-mock-muted);
