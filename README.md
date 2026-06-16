@@ -109,6 +109,7 @@ optional:
 | `customModals`   | `Record<string, string> \| ((attrs) => string \| undefined)` | —                    | Maps a custom-modal `action_id` to the URL the modal iframe should load.                                                      |
 | `appName`        | `string`                                                     | `'App Extension'`    | Name shown in the surface header bar the host injects onto each surface.                                                      |
 | `appIcon`        | `string`                                                     | a generic glyph      | Icon shown in the surface header bar — a URL (rendered as an `<img>`) or a short glyph/emoji.                                 |
+| `devTool`        | `boolean`                                                    | `true`               | Show the host's interactive Dev Tool overlay (see [Dev Tool](#dev-tool)). Pass `false` to omit it.                            |
 
 ### Theme and header branding
 
@@ -343,6 +344,28 @@ id, and treats that as the surface `RESIZE` sizes and `GET_METADATA` measures:
 ![A mock-host Custom Modal with a header bar and close button.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/custom-modal.png)
 
 ![A mock-host floating window in focus mode (top-right) with a disabled close button and a focus-mode badge.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/floating-window-focus.png)
+
+## Dev Tool
+
+The host renders its own interactive **Dev Tool** overlay — no consumer markup
+needed, it appears as soon as the host starts. It is docked to the bottom-left
+corner and can be collapsed to a compact launcher.
+
+Its **Active Log** records what crosses the host boundary, newest-first, each
+entry tagged with its direction: the Commands the App Extension sent (e.g.
+`app → host command: show_snackbar …`), the Tracks it fired, and the Events the
+host pushed back (e.g. `host → app event: user_settings_change …`). The panel is
+capped in height and scrolls.
+
+Turn it off with `devTool: false`:
+
+```ts
+startPipedriveMockHost({ devTool: false });
+```
+
+> More Dev Tool controls (emitting events, resizing the surface, toggling focus
+> mode) are in progress — see
+> [`docs/plans/2026-06-16-dev-tool-design.md`](./docs/plans/2026-06-16-dev-tool-design.md).
 
 ## Examples
 

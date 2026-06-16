@@ -76,6 +76,11 @@ export interface MockHostConfig {
    * short glyph/emoji (rendered as text). Defaults to a generic mock glyph.
    */
   appIcon?: string;
+  /**
+   * The host's own interactive Dev Tool overlay (ADR-0009). On by default; pass
+   * `false` to omit it entirely.
+   */
+  devTool?: boolean;
 }
 
 /** A single command the App Extension sent, captured for inspection in tests. */
@@ -566,6 +571,104 @@ const CHROME_STYLES = `
   }
 `;
 
+// Dev Tool overlay (ADR-0009). Pipedrive-like: clean light panel, green header
+// accent, system type; docked to a corner. Positioned bottom-left by default;
+// the data-position attribute moves it to any corner.
+const DEV_TOOL_STYLES = `
+  .pd-mock-dev-tool {
+    position: fixed;
+    z-index: 2147483647;
+    width: 320px;
+    max-height: 500px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--pd-mock-surface-bg);
+    color: var(--pd-mock-fg);
+    border: 1px solid var(--pd-mock-border);
+    border-radius: 10px;
+    box-shadow: var(--pd-mock-shadow);
+    font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .pd-mock-dev-tool[data-collapsed="true"] {
+    max-height: none;
+  }
+  .pd-mock-dev-tool[data-collapsed="true"] .pd-mock-dev-tool-log {
+    display: none;
+  }
+  .pd-mock-dev-tool[data-position="bottom-left"] { bottom: 12px; left: 12px; }
+  .pd-mock-dev-tool[data-position="bottom-right"] { bottom: 12px; right: 12px; }
+  .pd-mock-dev-tool[data-position="top-left"] { top: 12px; left: 12px; }
+  .pd-mock-dev-tool[data-position="top-right"] { top: 12px; right: 12px; }
+  .pd-mock-dev-tool-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: #017737;
+    color: #ffffff;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    flex: 0 0 auto;
+  }
+  .pd-mock-dev-tool-header::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #7be3a6;
+    box-shadow: 0 0 0 3px rgba(123, 227, 166, 0.3);
+    flex: 0 0 auto;
+  }
+  .pd-mock-dev-tool-title {
+    flex: 1 1 auto;
+  }
+  .pd-mock-dev-tool-toggle {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+    font: 600 16px/1 system-ui, sans-serif;
+    cursor: pointer;
+  }
+  .pd-mock-dev-tool-toggle:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+  .pd-mock-dev-tool-log {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    /* flex child must be allowed to shrink (min-height: 0) so it scrolls inside
+       the panel's max-height instead of stretching the panel past it. */
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px;
+  }
+  .pd-mock-dev-tool-log:empty::after {
+    content: "No activity yet";
+    display: block;
+    padding: 12px;
+    color: var(--pd-mock-muted);
+    font-family: system-ui, sans-serif;
+    font-style: italic;
+  }
+  .pd-mock-dev-tool-log > li {
+    padding: 6px 12px;
+    border-top: 1px solid var(--pd-mock-border);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .pd-mock-dev-tool-log > li:first-child {
+    border-top: none;
+  }
+`;
+
 /** Inert handle returned when there is no DOM (e.g. SSR). */
 const NOOP_HOST: MockHost = {
   get shadowRoot(): ShadowRoot {
@@ -629,12 +732,33 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   }
 
   const calls: MockHostCall[] = [];
+
+  // The Active Log's list element; assigned when the Dev Tool is built, null when
+  // the Dev Tool is off. `logToDevTool` prepends entries newest-first and no-ops
+  // when there is no log to write to.
+  let devToolLog: HTMLElement | null = null;
+  const logToDevTool = (
+    direction: string,
+    kind: string,
+    name: string,
+    payload?: unknown,
+  ): void => {
+    if (!devToolLog) {
+      return;
+    }
+    const entry = document.createElement('li');
+    const detail = payload === undefined ? '' : ` ${JSON.stringify(payload)}`;
+    entry.textContent = `${direction} ${kind}: ${name}${detail}`;
+    devToolLog.prepend(entry);
+  };
+
   // Open listener ports the App Extension registered via `sdk.listen`, keyed by
   // event name. `emit` pushes to every port for an event.
   const listeners = new Map<string, Set<MessagePort>>();
 
   // Push an event to every listener registered for it.
   const emitEvent = (eventName: string, eventData: unknown): void => {
+    logToDevTool('host → app', 'event', eventName, eventData);
     const ports = listeners.get(eventName);
     if (!ports) {
       return;
@@ -660,6 +784,55 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   surfaceStyleEl.setAttribute('data-pd-mock', 'surface-styles');
   surfaceStyleEl.textContent = SURFACE_STYLES;
   document.head.appendChild(surfaceStyleEl);
+
+  // Dev Tool: the host's own control overlay, rendered into the shadow root so
+  // it needs no consumer markup (ADR-0009). On by default.
+  if (config.devTool !== false) {
+    const devToolStyle = document.createElement('style');
+    devToolStyle.textContent = DEV_TOOL_STYLES;
+    shadowRoot.appendChild(devToolStyle);
+
+    const devToolEl = document.createElement('section');
+    devToolEl.className = 'pd-mock-dev-tool';
+    devToolEl.setAttribute('aria-label', 'Mock host dev tool');
+    devToolEl.setAttribute('data-position', 'bottom-left');
+
+    const header = document.createElement('header');
+    header.className = 'pd-mock-dev-tool-header';
+
+    const title = document.createElement('span');
+    title.className = 'pd-mock-dev-tool-title';
+    title.textContent = 'Mock host';
+    header.appendChild(title);
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'pd-mock-dev-tool-toggle';
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.setAttribute('aria-label', 'Collapse dev tool');
+    toggle.textContent = '–';
+    toggle.addEventListener('click', () => {
+      const collapsed = devToolEl.getAttribute('data-collapsed') === 'true';
+      const next = !collapsed;
+      devToolEl.setAttribute('data-collapsed', String(next));
+      toggle.setAttribute('aria-expanded', String(!next));
+      toggle.setAttribute(
+        'aria-label',
+        next ? 'Expand dev tool' : 'Collapse dev tool',
+      );
+      toggle.textContent = next ? '+' : '–';
+    });
+    header.appendChild(toggle);
+    devToolEl.appendChild(header);
+
+    const log = document.createElement('ul');
+    log.className = 'pd-mock-dev-tool-log';
+    log.setAttribute('aria-label', 'Active log');
+    devToolEl.appendChild(log);
+    devToolLog = log;
+
+    shadowRoot.appendChild(devToolEl);
+  }
 
   // The snackbar layer is created lazily on first use; styles live in the shadow
   // root so consumer CSS cannot reach them (and vice versa).
@@ -1166,6 +1339,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     // A fire-and-forget track (e.g. FOCUSED): record it, no reply.
     if (payload.type === MESSAGE_TYPE_TRACK && payload.event) {
       calls.push({ command: payload.event, args: undefined });
+      logToDevTool('app → host', 'track', payload.event);
       return;
     }
 
@@ -1178,6 +1352,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
       port?.postMessage({ data: response });
 
     calls.push({ command: payload.command, args: payload.args });
+    logToDevTool('app → host', 'command', payload.command, payload.args);
 
     switch (payload.command) {
       case COMMAND_INITIALIZE: {
