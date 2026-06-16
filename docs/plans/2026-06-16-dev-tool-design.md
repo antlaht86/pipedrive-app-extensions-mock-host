@@ -15,7 +15,7 @@ for the terms **Dev Tool** and **Active Log**.
 - Exposes only what the host can genuinely do on its own (emit Events; change
   host-owned Surface state). Never fakes an app-sent Command.
 - Surface-type aware: only applicable controls are shown for the active Surface.
-- Carries an Active Log, on by default, that can be shown/hidden.
+- Carries an Active Log, always shown while the Dev Tool is open.
 - Position configurable via a prop.
 
 ## Configuration
@@ -30,13 +30,11 @@ interface MockHostConfig {
         position?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
         /** Start collapsed to a launcher button. Default false (open). */
         startCollapsed?: boolean;
-        /** Show the Active Log. Default true. */
-        log?: boolean;
       };
 }
 ```
 
-- Omitted or `true` → on, with defaults (`bottom-left`, open, log on).
+- Omitted or `true` → on, with defaults (`bottom-left`, open).
 - `false` → not rendered at all.
 - Object → per-field overrides; missing fields take the defaults above.
 - All four corners are allowed even though some collide with existing chrome
@@ -119,8 +117,8 @@ inbound command, forbidden by ADR-0009) nor an Event. It is logged honestly as
 its own kind so the log is a complete activity record.
 
 - **Ring buffer** (cap ~200 entries) so it cannot grow unbounded.
-- **Capture is always on** (cheap); the `log` toggle controls whether the panel
-  is shown and live-updating. Toggling back on reveals retained history.
+- **The log panel is shown whenever the Dev Tool is open** (collapse hides the
+  whole tool, log included).
 - Outbound Events and Diagnostics are **new** capture points — today only
   Commands and Tracks land in `calls[]`. Plan: widen the internal record to a
   richer entry buffer and derive `getCalls()` from it. **`getCalls()` today
@@ -147,8 +145,7 @@ its own kind so the log is a complete activity record.
   host is a singleton, so a consumer that wants a different corner per view calls
   `host.devTool.setPosition(corner)` at runtime (it just rewrites the
   `data-position` attribute). The `MockHost.devTool` namespace holds this and
-  future runtime controls (collapse/expand, log show/hide); it no-ops when the
-  Dev Tool is disabled.
+  any future runtime controls; it no-ops when the Dev Tool is disabled.
 - Collapsible: the whole two-column panel ↔ a small launcher button (e.g.
   "● Mock host"). `startCollapsed` picks the initial state.
 - `z-index` at the snackbar level; the default `bottom-left` corner avoids
@@ -171,8 +168,8 @@ its own kind so the log is a complete activity record.
 - **unit (jsdom)**: controls render per active surface type; Focus mode hidden
   unless FW; Resize disabled with no surface; emit buttons call `emitEvent` with
   the correct SDK-shaped payloads; Active Log records each entry type with the
-  right direction; ring buffer caps; `log: false` hides the panel; `devTool:
-false` renders nothing; production/SSR/`enabled:false` render nothing.
+  right direction; ring buffer caps; `devTool: false` renders nothing;
+  production/SSR/`enabled:false` render nothing.
 - **Regression**: `getCalls()` still returns **both** Commands and Tracks after
   the internal buffer is widened (guards against the derive-from-Commands-only
   trap); Events and Diagnostics do **not** leak into `getCalls()`.
