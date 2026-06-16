@@ -444,14 +444,18 @@ export default function MockHostPlayground({
       </main>
       </div>
 
-      {/* The surface wrapper — sized & positioned by the host. */}
-      <div className={cfg.className} style={{ padding: 14, ...cfg.wrapperStyle }}>
-        <div className="text-xs tracking-widest text-accent">APP SURFACE</div>
-        <div className="mt-1 text-sm font-bold">{cfg.label}</div>
-        <p className="mt-2 text-xs text-muted">
-          This box is your app. RESIZE / GET_METADATA target it; it opened at its
-          maximum ({cfg.max}).
-        </p>
+      {/* The surface wrapper — sized & positioned by the host, which also
+          injects the header bar as the wrapper's first child. Padding lives on
+          an inner content box so that header sits flush to the surface edges. */}
+      <div className={cfg.className} style={cfg.wrapperStyle}>
+        <div style={{ padding: 14 }}>
+          <div className="text-xs tracking-widest text-accent">APP SURFACE</div>
+          <div className="mt-1 text-sm font-bold">{cfg.label}</div>
+          <p className="mt-2 text-xs text-muted">
+            This box is your app. RESIZE / GET_METADATA target it; it opened at
+            its maximum ({cfg.max}).
+          </p>
+        </div>
       </div>
     </div>
   );

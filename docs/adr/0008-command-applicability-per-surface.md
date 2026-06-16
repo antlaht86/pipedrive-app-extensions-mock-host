@@ -4,12 +4,12 @@ Some App Extension commands are only meaningful on a particular Surface type.
 The host now rejects an inapplicable command with a dev-only diagnostic instead
 of silently doing the wrong thing.
 
-| Command                                     | Applicable when                  |
-| ------------------------------------------- | -------------------------------- |
-| `CLOSE_MODAL`                               | a **Custom Modal** is open       |
+| Command                                         | Applicable when                     |
+| ----------------------------------------------- | ----------------------------------- |
+| `CLOSE_MODAL`                                   | a **Custom Modal** is open          |
 | `SHOW_FLOATING_WINDOW` / `HIDE_FLOATING_WINDOW` | active surface is a Floating Window |
-| `SET_NOTIFICATION` / `SET_FOCUS_MODE`       | active surface is a Floating Window |
-| everything else                             | any surface                      |
+| `SET_NOTIFICATION` / `SET_FOCUS_MODE`           | active surface is a Floating Window |
+| everything else                                 | any surface                         |
 
 ## These rules are doc-derived, not from the SDK
 
@@ -30,6 +30,11 @@ SDK promise resolves (never hang the caller). This mirrors the out-of-range
 `RESIZE` behaviour (ADR-0006, superseded section).
 
 - The four floating-window-only commands share one guard, `requireFloatingWindow(command)`.
+- `SET_FOCUS_MODE` additionally disables the floating window's header close (X)
+  button while on, so the user cannot close the window — Pipedrive's focus-mode
+  behaviour. This stays floating-window-only: a modal's close button is never
+  disabled (the host's screenshots show focus mode on a modal, but we keep the
+  command scoped to the floating window per this ADR).
 - `CLOSE_MODAL` needs to know whether the open modal is custom: the host tracks
   `openModalKind` (`'custom' | 'entity' | null`). Entity modals (deal/person/…)
   are native Pipedrive forms the app cannot close programmatically.

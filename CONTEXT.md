@@ -76,6 +76,12 @@ The Surface type toggled via `SHOW_FLOATING_WINDOW` / `HIDE_FLOATING_WINDOW`; a
 small persistent window (e.g. for call controls), 70–700px tall and 200–800px
 wide, independent of the panel.
 
+**Focus mode**:
+A mode toggled via `SET_FOCUS_MODE` that keeps the user from closing the Floating
+Window — its close control is disabled while focus mode is on. Floating-Window
+only; it does not apply to the Custom Panel or Custom Modal.
+_Avoid_: lock mode, modal mode.
+
 **Snackbar**:
 A transient message shown by `SHOW_SNACKBAR`. It is **not** a Surface — it
 appears at the browser's bottom-right corner, outside every Surface, and never
