@@ -9,6 +9,8 @@
 
   The app is wrapped in <div class="pd-mock-modal"> — the Mock Host styles it as
   a centred modal overlay (min 320x120, max = viewport) over a dimmed backdrop.
+  The surface here is a placeholder ("Your app renders here"); resize it from the
+  Dev Tool's Resize control (the backdrop would cover any in-page buttons).
 -->
 <html lang="en">
   <head>
@@ -28,34 +30,27 @@
       h1 {
         font-size: 1.25rem;
       }
-      button {
-        font: inherit;
-        padding: 0.5rem 1rem;
-        border: 1px solid #1a1a1a;
-        border-radius: 6px;
-        background: #fff;
-        cursor: pointer;
-      }
-      #status {
-        margin: 1rem 0;
-        padding: 0.5rem 0.75rem;
-        border-radius: 6px;
-        background: #f2f2f2;
-        font-family: ui-monospace, monospace;
-        font-size: 0.85rem;
-      }
-      label {
-        display: block;
-        margin: 0.75rem 0 0.25rem;
-        font-size: 0.85rem;
-      }
-      input {
-        font: inherit;
-        padding: 0.4rem 0.6rem;
-        width: 6rem;
+      /* Stand-in for the consumer's app — see index.html. */
+      .app-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        height: 100%;
+        min-height: 180px;
         box-sizing: border-box;
-        border: 1px solid #ccc;
-        border-radius: 6px;
+        text-align: center;
+        border: 2px dashed #d0d4da;
+        border-radius: 8px;
+        color: #6b7280;
+      }
+      .app-placeholder strong {
+        font-size: 1rem;
+        color: #1a1a1a;
+      }
+      .app-placeholder span {
+        font-size: 0.8rem;
       }
     </style>
   </head>
@@ -81,17 +76,16 @@
 
     <h1>Custom Modal surface</h1>
     <p>
-      The app lives inside <code>&lt;div class="pd-mock-modal"&gt;</code>. This
-      page is dimmed by the modal's backdrop; the modal is centred on top.
+      Your app renders into <code>&lt;div class="pd-mock-modal"&gt;</code> —
+      here it's just a placeholder. The page is dimmed by the modal's backdrop;
+      the modal is centred on top. Resize it from the <strong>Dev Tool</strong>.
     </p>
 
     <div class="pd-mock-modal" id="surface" style="padding: 18px">
-      <div id="status">initializing…</div>
-      <label for="w">Width (px) — clamps to 320…viewport</label>
-      <input id="w" type="number" value="520" />
-      <label for="h">Height (px) — clamps to 120…viewport</label>
-      <input id="h" type="number" value="400" />
-      <p><button id="resize" disabled>Resize modal</button></p>
+      <div class="app-placeholder">
+        <strong>Your app renders here</strong>
+        <span>Custom Modal surface</span>
+      </div>
     </div>
 
     <!-- Real SDK (UMD) → window.AppExtensionsSDK -->
@@ -100,36 +94,19 @@
     <script src="../dist/index.global.js"></script>
     <script>
       (async () => {
-        const statusEl = document.getElementById('status');
-        const resizeEl = document.getElementById('resize');
-        const wEl = document.getElementById('w');
-        const hEl = document.getElementById('h');
-
         const SDKGlobal = window.AppExtensionsSDK;
         const AppExtensionsSDK =
           typeof SDKGlobal === 'function' ? SDKGlobal : SDKGlobal.default;
-        const { Command } = SDKGlobal;
         const { startPipedriveMockHost } = window.PipedriveMockHost;
 
         startPipedriveMockHost();
         // A modal's max is the viewport: request a huge size, it clamps down.
-        const sdk = await new AppExtensionsSDK({
+        await new AppExtensionsSDK({
           identifier: 'dev-local',
         }).initialize({ size: { width: 99999, height: 99999 } });
-
-        statusEl.textContent = 'SDK initialized ✓';
-        resizeEl.disabled = false;
-
-        resizeEl.addEventListener('click', async () => {
-          await sdk.execute(Command.RESIZE, {
-            width: Number(wEl.value),
-            height: Number(hEl.value),
-          });
-          const meta = await sdk.execute(Command.GET_METADATA);
-          statusEl.textContent = `GET_METADATA → ${meta.windowWidth}×${meta.windowHeight}px`;
-        });
       })().catch((err) => {
-        document.getElementById('status').textContent = 'Error: ' + err.message;
+        document.getElementById('surface').textContent =
+          'Error: ' + err.message;
       });
     </script>
   </body>

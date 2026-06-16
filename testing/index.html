@@ -7,9 +7,12 @@
     npx http-server . -p 8080   # or: python3 -m http.server 8080
     open http://localhost:8080/testing/
 
-  Every Command and Event from the design plan has a control here. The app is
-  wrapped in <div class="pd-mock-panel"> (the Custom Panel surface). See
-  modal.html and floating-window.html for the other two surfaces.
+  The app surface is a placeholder ("Your app renders here") — in a real
+  integration your framework renders into <div class="pd-mock-panel">. Host-side
+  behaviour (resize, events, focus mode) is driven from the Dev Tool in the
+  corner; the buttons in the page fire the app-side SDK Commands the Dev Tool
+  cannot send on your behalf. See modal.html and floating-window.html for the
+  other two surfaces.
 -->
 <html lang="en">
   <head>
@@ -67,6 +70,30 @@
         white-space: pre-wrap;
         min-height: 5rem;
       }
+      /* Stand-in for the consumer's app. In a real integration the framework
+         renders its own UI into the surface; here it's just a marker so the
+         screenshots show where the app lives while the Dev Tool drives the host. */
+      .app-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        height: 100%;
+        min-height: 180px;
+        box-sizing: border-box;
+        text-align: center;
+        border: 2px dashed #d0d4da;
+        border-radius: 8px;
+        color: #6b7280;
+      }
+      .app-placeholder strong {
+        font-size: 1rem;
+        color: #1a1a1a;
+      }
+      .app-placeholder span {
+        font-size: 0.8rem;
+      }
     </style>
   </head>
   <body>
@@ -91,9 +118,36 @@
 
     <h1>Pipedrive App Extensions — Mock Host playground</h1>
     <p>
-      This app lives in a <code>&lt;div class="pd-mock-panel"&gt;</code>. Every
-      Command and Event is wired below; results append to the log.
+      Your app renders into the
+      <code>&lt;div class="pd-mock-panel"&gt;</code> on the left — here it's
+      just a placeholder. Drive host-side behaviour (resize, events, focus mode)
+      from the <strong>Dev Tool</strong> in the corner; the buttons below fire
+      the app-side SDK Commands the Dev Tool can't send for you. Results append
+      to the log.
     </p>
+
+    <h2>App actions (SDK Commands)</h2>
+    <button data-cmd="snackbar">Snackbar</button>
+    <button data-cmd="confirmation">Confirmation</button>
+    <button data-cmd="modal-deal">Open deal modal</button>
+    <button data-cmd="modal-custom">Open custom modal</button>
+    <button data-cmd="close-modal">Close modal</button>
+    <button data-cmd="redirect">Redirect → deals</button>
+    <button data-cmd="notification">Set notification 3</button>
+    <button data-cmd="focus-on">Focus mode on</button>
+    <button data-cmd="focus-off">Focus mode off</button>
+    <button data-cmd="token">Get signed token</button>
+    <br />
+    <label>Panel height <input id="height" type="number" value="260" /></label>
+    <button data-cmd="resize">Resize</button>
+    <button data-cmd="metadata">Get metadata</button>
+
+    <h2>Events (host → app)</h2>
+    <button data-cmd="emit-visibility">Emit VISIBILITY</button>
+    <button data-cmd="emit-theme">Emit USER_SETTINGS_CHANGE</button>
+    <button data-cmd="emit-close-modal">Emit CLOSE_CUSTOM_MODAL</button>
+
+    <div id="log">booting…</div>
 
     <div
       class="pd-mock-panel"
@@ -107,30 +161,10 @@
         overflow: auto;
       "
     >
-      <h2>Commands</h2>
-      <button data-cmd="snackbar">Snackbar</button>
-      <button data-cmd="confirmation">Confirmation</button>
-      <button data-cmd="modal-deal">Open deal modal</button>
-      <button data-cmd="modal-custom">Open custom modal</button>
-      <button data-cmd="close-modal">Close modal</button>
-      <button data-cmd="redirect">Redirect → deals</button>
-      <button data-cmd="notification">Set notification 3</button>
-      <button data-cmd="focus-on">Focus mode on</button>
-      <button data-cmd="focus-off">Focus mode off</button>
-      <button data-cmd="token">Get signed token</button>
-      <br />
-      <label
-        >Panel height <input id="height" type="number" value="260"
-      /></label>
-      <button data-cmd="resize">Resize</button>
-      <button data-cmd="metadata">Get metadata</button>
-
-      <h2>Events (host → app)</h2>
-      <button data-cmd="emit-visibility">Emit VISIBILITY</button>
-      <button data-cmd="emit-theme">Emit USER_SETTINGS_CHANGE</button>
-      <button data-cmd="emit-close-modal">Emit CLOSE_CUSTOM_MODAL</button>
-
-      <div id="log">booting…</div>
+      <div class="app-placeholder">
+        <strong>Your app renders here</strong>
+        <span>Custom Panel surface</span>
+      </div>
     </div>
 
     <!-- Real SDK (UMD) → window.AppExtensionsSDK -->
