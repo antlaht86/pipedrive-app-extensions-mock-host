@@ -4,3 +4,7 @@ package-lock.json
 .changeset
 # The Next.js demo app has its own tooling; don't format it from the root.
 testing/next-app
+# Hand-authored docs (ADRs, design plans). Prose and embedded diagrams are
+# formatted by hand; Prettier reflow fights that. README.md/CONTEXT.md live at
+# the repo root and stay formatted.
+docs
