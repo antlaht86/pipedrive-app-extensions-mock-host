@@ -1,78 +1,79 @@
-import Image from 'next/image';
-import { Geist, Geist_Mono } from 'next/font/google';
+import Link from 'next/link';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+const SURFACES = [
+  {
+    href: '/panel',
+    name: 'Custom Panel',
+    spec: 'fixed 385px · height 100–750',
+    blurb: 'The left-sidebar home of a deal/person/org detail view.',
+  },
+  {
+    href: '/modal',
+    name: 'Custom Modal',
+    spec: 'min 320×120 · max viewport',
+    blurb: 'A centred overlay opened on demand over the page.',
+  },
+  {
+    href: '/floating-window',
+    name: 'Floating Window',
+    spec: '200–800 × 70–700',
+    blurb: 'A small persistent window pinned to a corner.',
+  },
+];
 
 export default function Home() {
   return (
-    <div
-      className={`${geistSans.className} ${geistMono.className} flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black`}
-    >
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the index.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{' '}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{' '}
-            or the{' '}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{' '}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <main className="mx-auto max-w-5xl px-6 py-16">
+      <p className="text-xs tracking-[0.4em] text-accent">
+        PIPEDRIVE APP EXTENSIONS
+      </p>
+      <h1 className="mt-3 text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+        Mock Host
+        <span className="text-accent"> control console</span>
+      </h1>
+      <p className="mt-4 max-w-xl text-sm text-muted">
+        A consumer-style Next.js app driving the real{' '}
+        <code className="text-fg">@pipedrive/app-extensions-sdk</code> against the
+        local mock host. Pick a surface — each page exercises every command and
+        event and logs what was pressed. Run with{' '}
+        <code className="text-fg">npm run dev</code>.
+      </p>
+
+      <div className="mt-12 grid gap-4 sm:grid-cols-3">
+        {SURFACES.map((s, i) => (
+          <Link
+            key={s.href}
+            href={s.href}
+            className="group rounded-xl border border-line bg-panel p-5 transition-colors hover:border-accent"
+            style={{ animation: `rise 0.5s ${i * 0.08}s both ease-out` }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs/pages/getting-started?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            <div className="text-[11px] tracking-widest text-muted">
+              0{i + 1}
+            </div>
+            <div className="mt-2 text-lg font-bold group-hover:text-accent">
+              {s.name}
+            </div>
+            <div className="mt-1 text-[11px] text-accent-dim">{s.spec}</div>
+            <p className="mt-3 text-xs text-muted">{s.blurb}</p>
+            <div className="mt-4 text-xs text-muted group-hover:text-accent">
+              open →
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      <style jsx>{`
+        @keyframes rise {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: none;
+          }
+        }
+      `}</style>
+    </main>
   );
 }

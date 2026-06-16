@@ -1,26 +1,40 @@
 @import 'tailwindcss';
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* "Control console" theme — dark slate with a single green accent. */
+@theme {
+  --color-bg: #090c11;
+  --color-panel: #11161f;
+  --color-elev: #161d28;
+  --color-line: #222b39;
+  --color-fg: #e7edf4;
+  --color-muted: #76859b;
+  --color-accent: #34e08a;
+  --color-accent-dim: #1c8a52;
+  --color-negative: #ff5d57;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-mono), ui-monospace, 'SF Mono', monospace;
+  /* faint grid texture for atmosphere */
+  background-image:
+    linear-gradient(rgba(52, 224, 138, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(52, 224, 138, 0.025) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #06140c;
+}
+
+/* Thin console scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
 }
