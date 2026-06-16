@@ -623,10 +623,15 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // The currently open modal, if any, so CLOSE_MODAL can dismiss it.
   let resolveOpenModal: ((result: ModalResult) => void) | null = null;
   let removeOpenModal: (() => void) | null = null;
+  // Which kind of modal is open, so CLOSE_MODAL (custom-modal-only) can tell
+  // whether it applies. Entity modals (deal/person/…) are native Pipedrive
+  // forms the app cannot close programmatically.
+  let openModalKind: 'custom' | 'entity' | null = null;
 
   const closeModal = (result: ModalResult): void => {
     removeOpenModal?.();
     removeOpenModal = null;
+    openModalKind = null;
     const resolve = resolveOpenModal;
     resolveOpenModal = null;
     resolve?.(result);
@@ -638,6 +643,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   ): void => {
     ensureConfirmationStyles();
     resolveOpenModal = onResolve;
+    openModalKind = 'entity';
 
     const backdrop = document.createElement('div');
     backdrop.className = 'pd-mock-confirm-backdrop';
@@ -711,6 +717,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   ): void => {
     ensureConfirmationStyles();
     resolveOpenModal = onResolve;
+    openModalKind = 'custom';
 
     const backdrop = document.createElement('div');
     backdrop.className = 'pd-mock-confirm-backdrop';
@@ -829,6 +836,24 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     return true;
   };
 
+  // Guard for commands that only apply to a floating window (SHOW/HIDE_FLOATING
+  // _WINDOW, SET_NOTIFICATION, SET_FOCUS_MODE — Pipedrive UI rules, not in the
+  // SDK). Logs a diagnostic and returns false when the active surface is not a
+  // floating window; the caller then replies without acting.
+  const requireFloatingWindow = (command: string): boolean => {
+    const active = resolveSurface();
+    if (active.classList.contains('pd-mock-floating-window')) {
+      return true;
+    }
+    const type = surfaceTypeOf(active);
+    console.error(
+      `[pipedrive-mock-host] ${command} ignored: active surface is "${
+        type ? surfaceName(type) : 'none'
+      }", not a floating window.`,
+    );
+    return false;
+  };
+
   const onMessage = (event: MessageEvent): void => {
     const data = event.data as
       | {
@@ -932,6 +957,10 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         break;
       }
       case COMMAND_SET_NOTIFICATION: {
+        if (!requireFloatingWindow('SET_NOTIFICATION')) {
+          reply();
+          break;
+        }
         const args = payload.args as { number?: number } | undefined;
         const chrome = ensureChrome();
         let badge = chrome.querySelector<HTMLElement>('.pd-mock-notification');
@@ -962,6 +991,19 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         break;
       }
       case COMMAND_CLOSE_MODAL: {
+        // CLOSE_MODAL only applies to custom modals; entity modals are native
+        // Pipedrive forms the app cannot close. Report and do nothing else, but
+        // still reply so the SDK promise resolves.
+        if (openModalKind !== 'custom') {
+          console.error(
+            '[pipedrive-mock-host] CLOSE_MODAL ignored: no custom modal is open (CLOSE_MODAL applies only to custom modals).',
+          );
+          reply();
+          break;
+        }
+        // Closing via command fires CLOSE_CUSTOM_MODAL, like the user's Close
+        // button does.
+        emitEvent(EVENT_CLOSE_CUSTOM_MODAL, undefined);
         closeModal({ status: 'closed' });
         reply();
         break;
@@ -972,18 +1014,10 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         const command = visible
           ? 'SHOW_FLOATING_WINDOW'
           : 'HIDE_FLOATING_WINDOW';
-        const active = resolveSurface();
-        // The floating window only exists alongside a floating-window surface;
-        // on a panel/modal it is unavailable. Report it and do nothing else
-        // (no DOM change, no misleading VISIBILITY event) — but still reply so
-        // the SDK promise resolves.
-        if (!active.classList.contains('pd-mock-floating-window')) {
-          const type = surfaceTypeOf(active);
-          console.error(
-            `[pipedrive-mock-host] ${command} ignored: active surface is "${
-              type ? surfaceName(type) : 'none'
-            }", not a floating window.`,
-          );
+        // The floating window is unavailable on a panel/modal: report it and do
+        // nothing else (no DOM change, no misleading VISIBILITY event) — but
+        // still reply so the SDK promise resolves.
+        if (!requireFloatingWindow(command)) {
           reply();
           break;
         }
@@ -1012,6 +1046,10 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         break;
       }
       case COMMAND_SET_FOCUS_MODE: {
+        if (!requireFloatingWindow('SET_FOCUS_MODE')) {
+          reply();
+          break;
+        }
         const enabled = payload.args === true;
         const chrome = ensureChrome();
         const existing = chrome.querySelector('.pd-mock-focus');

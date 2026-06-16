@@ -531,6 +531,7 @@ test('the unsubscribe function stops further events', async () => {
 
 test('SET_NOTIFICATION shows the notification count', async () => {
   host = startPipedriveMockHost();
+  renderSurface('pd-mock-floating-window');
   const sdk = await createSdk();
 
   await sdk.execute(Command.SET_NOTIFICATION, { number: 3 });
@@ -539,10 +540,30 @@ test('SET_NOTIFICATION shows the notification count', async () => {
   expect(ui.getByText('3')).toBeVisible();
 });
 
+test('SET_NOTIFICATION on a non-floating-window surface errors and shows no badge', async () => {
+  host = startPipedriveMockHost();
+  renderPanel();
+  const sdk = await createSdk();
+  const errors: string[] = [];
+  const spy = vi
+    .spyOn(console, 'error')
+    .mockImplementation((...a: unknown[]) => errors.push(a.join(' ')));
+
+  await sdk.execute(Command.SET_NOTIFICATION, { number: 3 });
+
+  spy.mockRestore();
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  expect(
+    errors.some((e) => e.includes('SET_NOTIFICATION') && e.includes('panel')),
+  ).toBe(true);
+  expect(ui.queryByText('3')).toBeNull();
+});
+
 // Focus mode (SET_FOCUS_MODE).
 
 test('SET_FOCUS_MODE toggles a focus-mode indicator', async () => {
   host = startPipedriveMockHost();
+  renderSurface('pd-mock-floating-window');
   const sdk = await createSdk();
   const ui = within(host.shadowRoot as unknown as HTMLElement);
 
@@ -550,6 +571,25 @@ test('SET_FOCUS_MODE toggles a focus-mode indicator', async () => {
   expect(ui.getByText('Focus mode')).toBeVisible();
 
   await sdk.execute(Command.SET_FOCUS_MODE, false);
+  expect(ui.queryByText('Focus mode')).toBeNull();
+});
+
+test('SET_FOCUS_MODE on a non-floating-window surface errors and shows no indicator', async () => {
+  host = startPipedriveMockHost();
+  renderPanel();
+  const sdk = await createSdk();
+  const errors: string[] = [];
+  const spy = vi
+    .spyOn(console, 'error')
+    .mockImplementation((...a: unknown[]) => errors.push(a.join(' ')));
+
+  await sdk.execute(Command.SET_FOCUS_MODE, true);
+
+  spy.mockRestore();
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  expect(
+    errors.some((e) => e.includes('SET_FOCUS_MODE') && e.includes('panel')),
+  ).toBe(true);
   expect(ui.queryByText('Focus mode')).toBeNull();
 });
 
@@ -616,18 +656,66 @@ test('OPEN_MODAL Close resolves closed without an id', async () => {
   expect(await resultPromise).toEqual({ status: 'closed' });
 });
 
-test('CLOSE_MODAL dismisses the open modal and resolves it closed', async () => {
+test('CLOSE_MODAL on an entity modal errors and leaves it open', async () => {
   host = startPipedriveMockHost();
   const sdk = await createSdk();
+  const errors: string[] = [];
+  const spy = vi
+    .spyOn(console, 'error')
+    .mockImplementation((...a: unknown[]) => errors.push(a.join(' ')));
 
-  const resultPromise = sdk.execute(Command.OPEN_MODAL, { type: 'deal' });
+  void sdk.execute(Command.OPEN_MODAL, { type: 'deal' });
   const ui = within(host.shadowRoot as unknown as HTMLElement);
   await ui.findByRole('dialog');
+
+  // CLOSE_MODAL only applies to custom modals; resolves (does not hang).
+  await sdk.execute(Command.CLOSE_MODAL);
+
+  spy.mockRestore();
+  expect(errors.some((e) => e.includes('CLOSE_MODAL'))).toBe(true);
+  expect(ui.queryByRole('dialog')).not.toBeNull();
+});
+
+test('CLOSE_MODAL closes a custom modal and fires CLOSE_CUSTOM_MODAL once', async () => {
+  host = startPipedriveMockHost({
+    customModals: { x: 'https://example.com/x' },
+  });
+  const sdk = await createSdk();
+  const closed: Array<{ data?: unknown }> = [];
+  sdk.listen(Event.CLOSE_CUSTOM_MODAL, (r) => closed.push(r));
+  await tick();
+
+  const resultPromise = sdk.execute(Command.OPEN_MODAL, {
+    type: 'custom_modal',
+    action_id: 'x',
+  });
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  await vi.waitFor(() =>
+    expect(
+      (host!.shadowRoot as ShadowRoot).querySelector('iframe'),
+    ).not.toBeNull(),
+  );
 
   await sdk.execute(Command.CLOSE_MODAL);
 
   expect(await resultPromise).toEqual({ status: 'closed' });
   expect(ui.queryByRole('dialog')).toBeNull();
+  await vi.waitFor(() => expect(closed).toHaveLength(1));
+  expect(closed[0].data).toBeUndefined();
+});
+
+test('CLOSE_MODAL with no modal open errors', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+  const errors: string[] = [];
+  const spy = vi
+    .spyOn(console, 'error')
+    .mockImplementation((...a: unknown[]) => errors.push(a.join(' ')));
+
+  await sdk.execute(Command.CLOSE_MODAL);
+
+  spy.mockRestore();
+  expect(errors.some((e) => e.includes('CLOSE_MODAL'))).toBe(true);
 });
 
 test('OPEN_MODAL renders the prefill values it received', async () => {
@@ -832,6 +920,7 @@ test('initialize({ size }) applies width and height to a floating window', async
 
 test('host UI colors are overridable via CSS custom properties on the host', async () => {
   host = startPipedriveMockHost();
+  renderSurface('pd-mock-floating-window');
   const sdk = await createSdk();
   const el = document.querySelector('pipedrive-mock-host') as HTMLElement;
   el.style.setProperty('--pd-mock-negative', 'rgb(1, 2, 3)');
