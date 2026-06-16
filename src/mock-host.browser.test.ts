@@ -738,13 +738,14 @@ test('SET_FOCUS_MODE toggles a focus-mode indicator', async () => {
   host = startPipedriveMockHost();
   renderSurface('pd-mock-floating-window');
   const sdk = await createSdk();
-  const ui = within(host.shadowRoot as unknown as HTMLElement);
 
+  // Target the focus-mode indicator by its class. The Dev Tool also renders a
+  // "Focus mode" control label, so a by-text query would match two elements.
   await sdk.execute(Command.SET_FOCUS_MODE, true);
-  expect(ui.getByText('Focus mode')).toBeVisible();
+  expect(host.shadowRoot.querySelector('.pd-mock-focus')).toBeVisible();
 
   await sdk.execute(Command.SET_FOCUS_MODE, false);
-  expect(ui.queryByText('Focus mode')).toBeNull();
+  expect(host.shadowRoot.querySelector('.pd-mock-focus')).toBeNull();
 });
 
 test('SET_FOCUS_MODE on a non-floating-window surface errors and shows no indicator', async () => {
@@ -759,11 +760,12 @@ test('SET_FOCUS_MODE on a non-floating-window surface errors and shows no indica
   await sdk.execute(Command.SET_FOCUS_MODE, true);
 
   spy.mockRestore();
-  const ui = within(host.shadowRoot as unknown as HTMLElement);
   expect(
     errors.some((e) => e.includes('SET_FOCUS_MODE') && e.includes('panel')),
   ).toBe(true);
-  expect(ui.queryByText('Focus mode')).toBeNull();
+  // The indicator must be absent; the Dev Tool's "Focus mode" control label is
+  // present-but-hidden on a panel, so assert on the indicator class, not text.
+  expect(host.shadowRoot.querySelector('.pd-mock-focus')).toBeNull();
 });
 
 // Redirect (REDIRECT_TO).
