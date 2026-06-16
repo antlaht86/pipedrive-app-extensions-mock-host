@@ -136,7 +136,8 @@ its own kind so the log is a complete activity record.
 - **Two columns**, side by side under a full-width header: **Controls on the
   left** (fixed ~240px — the event emitters, resize, focus-mode toggle), the
   **Active Log on the right** (flexible ~320px). Panel ≈ 580px wide, capped at
-  **500px** tall; each column scrolls independently.
+  **300px** tall; each column scrolls independently. Resize is disabled (label
+  "No surface") when there is no active surface.
 - Anchored to `devTool.position` (default `bottom-left`); `position: fixed`. The
   playground sets the position per page so the tool clears that page's surface —
   e.g. the panel page (panel pinned to the left edge) docks the Dev Tool

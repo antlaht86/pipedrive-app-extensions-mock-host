@@ -1,49 +1,53 @@
 import { afterEach, expect, test } from 'vitest';
-import { startPipedriveMockHost } from './index.js';
+import { startPipedriveMockHost, type MockHost } from './index.js';
 
 // Dev Tool behaviour (ADR-0009, docs/plans/2026-06-16-dev-tool-design.md). These
 // are DOM-structure tests, so they run in the jsdom unit project; event delivery
 // to a real SDK listener is covered separately in the browser project.
 
+// Tear the host down in afterEach (not per test) so a failed assertion can't
+// leave the singleton running and pollute the next test.
+let host: MockHost | undefined;
+
 afterEach(() => {
-  document.querySelectorAll('pipedrive-mock-host').forEach((el) => el.remove());
+  host?.teardown();
+  host = undefined;
+  document
+    .querySelectorAll(
+      'pipedrive-mock-host, .pd-mock-panel, .pd-mock-modal, .pd-mock-floating-window',
+    )
+    .forEach((el) => el.remove());
 });
 
 test('renders the dev tool into the shadow root by default', () => {
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
 
   const devTool = host.shadowRoot.querySelector(
     '[aria-label="Mock host dev tool"]',
   );
   expect(devTool).not.toBeNull();
-
-  host.teardown();
 });
 
 test('devTool: false renders no dev tool', () => {
-  const host = startPipedriveMockHost({ devTool: false });
+  host = startPipedriveMockHost({ devTool: false });
 
   expect(
     host.shadowRoot.querySelector('[aria-label="Mock host dev tool"]'),
   ).toBeNull();
-
-  host.teardown();
 });
 
 test('emitting an event adds an Event entry to the Active Log', () => {
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
 
   host.emit('user_settings_change', { theme: 'dark' });
 
   const log = host.shadowRoot.querySelector('[aria-label="Active log"]');
   expect(log?.textContent).toContain('user_settings_change');
   expect(log?.textContent).toContain('dark');
-
-  host.teardown();
 });
 
 test('a track the app sends appears in the Active Log', () => {
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
 
   window.dispatchEvent(
     new MessageEvent('message', {
@@ -53,12 +57,10 @@ test('a track the app sends appears in the Active Log', () => {
 
   const log = host.shadowRoot.querySelector('[aria-label="Active log"]');
   expect(log?.textContent).toContain('focused');
-
-  host.teardown();
 });
 
 test('a command the app sends appears in the Active Log', () => {
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
 
   window.dispatchEvent(
     new MessageEvent('message', {
@@ -68,12 +70,10 @@ test('a command the app sends appears in the Active Log', () => {
 
   const log = host.shadowRoot.querySelector('[aria-label="Active log"]');
   expect(log?.textContent).toContain('get_metadata');
-
-  host.teardown();
 });
 
 test('devTool.position anchors the dev tool to the given corner', () => {
-  const host = startPipedriveMockHost({
+  host = startPipedriveMockHost({
     devTool: { position: 'bottom-right' },
   });
 
@@ -81,12 +81,10 @@ test('devTool.position anchors the dev tool to the given corner', () => {
     '[aria-label="Mock host dev tool"]',
   );
   expect(tool?.getAttribute('data-position')).toBe('bottom-right');
-
-  host.teardown();
 });
 
 test('host.devTool.setPosition moves the dev tool at runtime', () => {
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
 
   const tool = host.shadowRoot.querySelector<HTMLElement>(
     '[aria-label="Mock host dev tool"]',
@@ -95,23 +93,19 @@ test('host.devTool.setPosition moves the dev tool at runtime', () => {
 
   host.devTool.setPosition('top-right');
   expect(tool?.getAttribute('data-position')).toBe('top-right');
-
-  host.teardown();
 });
 
 test('devTool defaults to the bottom-left corner', () => {
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
 
   const tool = host.shadowRoot.querySelector<HTMLElement>(
     '[aria-label="Mock host dev tool"]',
   );
   expect(tool?.getAttribute('data-position')).toBe('bottom-left');
-
-  host.teardown();
 });
 
 test('the theme control emits USER_SETTINGS_CHANGE with the chosen theme', () => {
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
 
   const tool = host.shadowRoot.querySelector<HTMLElement>(
     '[aria-label="Mock host dev tool"]',
@@ -131,12 +125,10 @@ test('the theme control emits USER_SETTINGS_CHANGE with the chosen theme', () =>
   const log = tool?.querySelector('[aria-label="Active log"]');
   expect(log?.textContent).toContain('user_settings_change');
   expect(log?.textContent).toContain('dark');
-
-  host.teardown();
 });
 
 test('the visibility control emits VISIBILITY with is_visible and invoker', () => {
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
 
   const tool = host.shadowRoot.querySelector<HTMLElement>(
     '[aria-label="Mock host dev tool"]',
@@ -150,12 +142,10 @@ test('the visibility control emits VISIBILITY with is_visible and invoker', () =
   expect(log?.textContent).toContain('visibility');
   expect(log?.textContent).toContain('is_visible');
   expect(log?.textContent).toContain('invoker');
-
-  host.teardown();
 });
 
 test('the page visibility control emits PAGE_VISIBILITY_STATE with state', () => {
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
 
   const tool = host.shadowRoot.querySelector<HTMLElement>(
     '[aria-label="Mock host dev tool"]',
@@ -168,8 +158,6 @@ test('the page visibility control emits PAGE_VISIBILITY_STATE with state', () =>
   const log = tool?.querySelector('[aria-label="Active log"]');
   expect(log?.textContent).toContain('page_visibility_state');
   expect(log?.textContent).toContain('state');
-
-  host.teardown();
 });
 
 test('the resize control resizes the active surface', () => {
@@ -177,7 +165,7 @@ test('the resize control resizes the active surface', () => {
   panel.className = 'pd-mock-panel';
   document.body.appendChild(panel);
 
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
 
   const tool = host.shadowRoot.querySelector<HTMLElement>(
     '[aria-label="Mock host dev tool"]',
@@ -197,7 +185,82 @@ test('the resize control resizes the active surface', () => {
   expect(panel.style.height).toBe('300px');
 
   panel.remove();
-  host.teardown();
+});
+
+test('the resize control is disabled when there is no active surface', () => {
+  host = startPipedriveMockHost();
+
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  const apply = tool?.querySelector<HTMLButtonElement>(
+    'button[aria-label="Apply resize"]',
+  );
+  expect(apply?.disabled).toBe(true);
+});
+
+test('the resize control is enabled when a surface is present', () => {
+  const panel = document.createElement('div');
+  panel.className = 'pd-mock-panel';
+  document.body.appendChild(panel);
+
+  host = startPipedriveMockHost();
+
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  const apply = tool?.querySelector<HTMLButtonElement>(
+    'button[aria-label="Apply resize"]',
+  );
+  expect(apply?.disabled).toBe(false);
+
+  panel.remove();
+});
+
+test('a Dev Tool resize is logged as a Dev Tool action', () => {
+  const panel = document.createElement('div');
+  panel.className = 'pd-mock-panel';
+  document.body.appendChild(panel);
+
+  host = startPipedriveMockHost();
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  const height = tool?.querySelector<HTMLInputElement>(
+    'input[aria-label="Resize height"]',
+  );
+  if (height) {
+    height.value = '300';
+  }
+  tool
+    ?.querySelector<HTMLButtonElement>('button[aria-label="Apply resize"]')
+    ?.click();
+
+  const log = tool?.querySelector('[aria-label="Active log"]');
+  expect(log?.textContent).toContain('dev tool action');
+  expect(log?.textContent).toContain('resize');
+
+  panel.remove();
+});
+
+test('a Dev Tool focus toggle is logged as a Dev Tool action', () => {
+  const fw = document.createElement('div');
+  fw.className = 'pd-mock-floating-window';
+  document.body.appendChild(fw);
+
+  host = startPipedriveMockHost();
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  tool
+    ?.querySelector<HTMLButtonElement>('button[aria-label="Toggle focus mode"]')
+    ?.click();
+
+  const log = tool?.querySelector('[aria-label="Active log"]');
+  expect(log?.textContent).toContain('dev tool action');
+  expect(log?.textContent).toContain('focus mode');
+
+  fw.remove();
 });
 
 test('collapsing the panel emits VISIBILITY to the app', () => {
@@ -205,7 +268,7 @@ test('collapsing the panel emits VISIBILITY to the app', () => {
   panel.className = 'pd-mock-panel';
   document.body.appendChild(panel);
 
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
   // The host decorates the panel with its header on the initialize handshake.
   window.dispatchEvent(
     new MessageEvent('message', {
@@ -223,7 +286,6 @@ test('collapsing the panel emits VISIBILITY to the app', () => {
   expect(log?.textContent).toContain('is_visible');
 
   panel.remove();
-  host.teardown();
 });
 
 test('the focus-mode control is shown when a floating window is active', () => {
@@ -231,7 +293,7 @@ test('the focus-mode control is shown when a floating window is active', () => {
   fw.className = 'pd-mock-floating-window';
   document.body.appendChild(fw);
 
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
   const tool = host.shadowRoot.querySelector<HTMLElement>(
     '[aria-label="Mock host dev tool"]',
   );
@@ -244,7 +306,6 @@ test('the focus-mode control is shown when a floating window is active', () => {
   ).toBe(false);
 
   fw.remove();
-  host.teardown();
 });
 
 test('the focus-mode control is hidden when the surface is a panel', () => {
@@ -252,7 +313,7 @@ test('the focus-mode control is hidden when the surface is a panel', () => {
   panel.className = 'pd-mock-panel';
   document.body.appendChild(panel);
 
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
   const tool = host.shadowRoot.querySelector<HTMLElement>(
     '[aria-label="Mock host dev tool"]',
   );
@@ -265,7 +326,6 @@ test('the focus-mode control is hidden when the surface is a panel', () => {
   ).toBe(true);
 
   panel.remove();
-  host.teardown();
 });
 
 test('the focus toggle disables the floating window close button', () => {
@@ -273,7 +333,7 @@ test('the focus toggle disables the floating window close button', () => {
   fw.className = 'pd-mock-floating-window';
   document.body.appendChild(fw);
 
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
   // Decorate the floating window so it carries a header close button.
   window.dispatchEvent(
     new MessageEvent('message', {
@@ -292,11 +352,10 @@ test('the focus toggle disables the floating window close button', () => {
   expect(close?.disabled).toBe(true);
 
   fw.remove();
-  host.teardown();
 });
 
 test('adding a floating window reveals the focus control reactively', async () => {
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
 
   const tool = host.shadowRoot.querySelector<HTMLElement>(
     '[aria-label="Mock host dev tool"]',
@@ -315,11 +374,10 @@ test('adding a floating window reveals the focus control reactively', async () =
   expect(focusRow?.hasAttribute('hidden')).toBe(false);
 
   fw.remove();
-  host.teardown();
 });
 
 test('the dev tool can be collapsed and expanded via its toggle', () => {
-  const host = startPipedriveMockHost();
+  host = startPipedriveMockHost();
 
   const tool = host.shadowRoot.querySelector<HTMLElement>(
     '[aria-label="Mock host dev tool"]',
@@ -335,6 +393,4 @@ test('the dev tool can be collapsed and expanded via its toggle', () => {
 
   toggle?.click();
   expect(toggle?.getAttribute('aria-expanded')).toBe('true');
-
-  host.teardown();
 });

@@ -370,10 +370,10 @@ as your framework mounts and unmounts the surface wrapper.
 
 The **Active Log** records activity, newest-first, each entry tagged with its
 direction: the Commands the App Extension sent (e.g.
-`app → host command: show_snackbar …`), the Tracks it fired, and the Events the
-host pushed back (e.g. `host → app event: visibility …` — including the
-user-invoked `VISIBILITY` fired when you collapse the panel). The panel is capped
-in height and scrolls.
+`app → host command: show_snackbar …`), the Tracks it fired, the Events the host
+pushed back (e.g. `host → app event: visibility …` — including the user-invoked
+`VISIBILITY` fired when you collapse the panel), and the Dev Tool's own actions
+(e.g. `dev tool action: resize …`). The panel is capped in height and scrolls.
 
 Choose the corner, or turn it off entirely:
 
@@ -390,9 +390,8 @@ const host = startPipedriveMockHost();
 host.devTool.setPosition('top-right'); // bottom-left | bottom-right | top-left | top-right
 ```
 
-> A few refinements are still in progress (disabling Resize when no surface is
-> present, logging Dev-Tool-initiated resize/focus actions, a log show/hide
-> toggle) — see
+> A few refinements are still in progress (a log show/hide toggle and
+> `startCollapsed` option, browser-mode tests) — see
 > [`docs/plans/2026-06-16-dev-tool-design.md`](./docs/plans/2026-06-16-dev-tool-design.md).
 
 ## Examples

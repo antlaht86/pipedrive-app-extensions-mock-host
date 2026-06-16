@@ -599,7 +599,7 @@ const DEV_TOOL_STYLES = `
     z-index: 2147483647;
     width: 580px;
     max-width: calc(100vw - 24px);
-    max-height: 500px;
+    max-height: 300px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -807,9 +807,12 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // no-ops when there is no log to write to.
   let devToolElement: HTMLElement | null = null;
   let devToolLog: HTMLElement | null = null;
-  // The focus-mode control row (shown only for a floating window) and the
-  // observer that keeps surface-dependent controls in sync with the DOM.
+  // Surface-dependent Dev Tool controls (kept in sync by the observer below):
+  // the focus-mode row (floating-window only) and the resize row (disabled with
+  // no active surface). Plus the observer itself.
   let devToolFocusRow: HTMLElement | null = null;
+  let devToolResizeRow: HTMLElement | null = null;
+  let devToolResizeLabel: HTMLElement | null = null;
   let devToolObserver: MutationObserver | null = null;
   const logToDevTool = (
     direction: string,
@@ -1002,17 +1005,19 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     resizeApply.setAttribute('aria-label', 'Apply resize');
     resizeApply.textContent = 'Apply';
     resizeApply.addEventListener('click', () => {
-      applySize(
-        {
-          width: widthInput.value !== '' ? Number(widthInput.value) : undefined,
-          height:
-            heightInput.value !== '' ? Number(heightInput.value) : undefined,
-        },
-        'dev tool resize',
-      );
+      const size = {
+        width: widthInput.value !== '' ? Number(widthInput.value) : undefined,
+        height:
+          heightInput.value !== '' ? Number(heightInput.value) : undefined,
+      };
+      if (applySize(size, 'dev tool resize')) {
+        logToDevTool('dev tool', 'action', 'resize', size);
+      }
     });
     resizeRow.append(resizeLabel, widthInput, heightInput, resizeApply);
     controls.appendChild(resizeRow);
+    devToolResizeRow = resizeRow;
+    devToolResizeLabel = resizeLabel;
 
     // Focus mode — floating-window only, so this row is hidden for other
     // surfaces (toggled by refreshDevToolSurface below).
@@ -1032,6 +1037,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
       focusToggle.setAttribute('aria-pressed', String(on));
       focusToggle.textContent = on ? 'On' : 'Off';
       applyFocusMode(on);
+      logToDevTool('dev tool', 'action', 'focus mode', { enabled: on });
     });
     focusRow.append(focusLabel, focusToggle);
     controls.appendChild(focusRow);
@@ -1772,9 +1778,26 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // toggles included) and recompute. Cheap: one querySelector per mutation.
   if (devToolElement) {
     const refreshDevToolSurface = (): void => {
+      const type = surfaceTypeOf(resolveSurface());
       if (devToolFocusRow) {
-        devToolFocusRow.hidden =
-          surfaceTypeOf(resolveSurface()) !== 'pd-mock-floating-window';
+        devToolFocusRow.hidden = type !== 'pd-mock-floating-window';
+      }
+      if (devToolResizeRow) {
+        // No surface (body fallback) → nothing to size, so disable the control.
+        const hasSurface = type !== undefined;
+        devToolResizeRow
+          .querySelectorAll<HTMLInputElement>('input')
+          .forEach((input) => {
+            input.disabled = !hasSurface;
+          });
+        devToolResizeRow
+          .querySelectorAll<HTMLButtonElement>('button')
+          .forEach((button) => {
+            button.disabled = !hasSurface;
+          });
+        if (devToolResizeLabel) {
+          devToolResizeLabel.textContent = hasSurface ? 'Resize' : 'No surface';
+        }
       }
     };
     refreshDevToolSurface();
