@@ -87,6 +87,22 @@ A transient message shown by `SHOW_SNACKBAR`. It is **not** a Surface — it
 appears at the browser's bottom-right corner, outside every Surface, and never
 nests inside the panel/modal/floating window.
 
+**Dev Tool**:
+The Mock Host's own interactive control overlay, rendered by the host into its
+shadow root like any other host chrome — it needs no consumer markup and is not
+a Surface (it wraps none of the App Extension's content). It lets the developer
+drive the host (e.g. push Events to the App Extension) and observe what is
+happening (see Active Log). On by default; can be turned off. Distinct from the
+external `testing/` playground, which is sample consumer code, not part of the
+shipped package.
+_Avoid_: playground (that is the external sample app), panel, inspector.
+
+**Active Log**:
+The Dev Tool's running record of what crosses the host boundary — the Commands
+the App Extension sent, the Events the host pushed back, Tracks received, and
+dev diagnostics. On by default; can be toggled off within the Dev Tool.
+_Avoid_: console, history, trace.
+
 ## Example dialogue
 
 > **Dev:** When the App Extension calls `execute(SHOW_SNACKBAR)`, who renders it?
