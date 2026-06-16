@@ -82,9 +82,12 @@ child** of each class-identified wrapper (`decorateSurfaces()`, run on the
 `initialize` handshake; idempotent). Contents by type:
 
 - **Custom Panel** — collapse chevron (toggles `.pd-mock-collapsed`, hiding the
-  non-header content via CSS), app icon + name, a refresh button
-  (`window.location.reload()` — the mock shares the page rather than embedding an
-  iframe), and an inert "more (⋯)" button (no menu — present for fidelity).
+  non-header content via CSS, **and firing a user-invoked `VISIBILITY`** —
+  `is_visible: false` on collapse, `true` on expand — so the app learns its
+  surface was hidden/shown, the same way the floating-window close does), app
+  icon + name, a refresh button (`window.location.reload()` — the mock shares the
+  page rather than embedding an iframe), and an inert "more (⋯)" button (no menu —
+  present for fidelity).
 - **Custom Modal** (the `pd-mock-modal` wrapper) — app name + a close (X) button
   that hides the surface and fires `CLOSE_CUSTOM_MODAL`.
 - **Floating Window** — app icon + name + a close (X) that hides it and fires a

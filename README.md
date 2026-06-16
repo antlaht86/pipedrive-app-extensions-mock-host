@@ -35,8 +35,9 @@ uses in production:
    (e.g. `VISIBILITY`, `USER_SETTINGS_CHANGE`) via the controller's `emit()`.
    Your `sdk.listen(Event.X, cb)` receives them. The host also fires some events
    on its own from user interaction: closing a custom modal (its X button or
-   `CLOSE_MODAL`) fires `CLOSE_CUSTOM_MODAL`, and closing a floating window via
-   its X fires `VISIBILITY` with `context.invoker = 'user'`.
+   `CLOSE_MODAL`) fires `CLOSE_CUSTOM_MODAL`, closing a floating window via its X
+   fires `VISIBILITY` with `context.invoker = 'user'`, and collapsing/expanding
+   the panel fires `VISIBILITY` (`is_visible` false/true, `invoker: 'user'`).
 4. **Tracks.** Fire-and-forget messages the SDK sends (e.g. `FOCUSED`) are
    received and swallowed — no reply, by design.
 
@@ -349,13 +350,24 @@ id, and treats that as the surface `RESIZE` sizes and `GET_METADATA` measures:
 
 The host renders its own interactive **Dev Tool** overlay — no consumer markup
 needed, it appears as soon as the host starts. It docks to a corner
-(`bottom-left` by default) and can be collapsed to a compact launcher.
+(`bottom-left` by default) and can be collapsed to a compact launcher. It has two
+columns: **Controls** on the left, the **Active Log** on the right.
 
-Its **Active Log** records what crosses the host boundary, newest-first, each
-entry tagged with its direction: the Commands the App Extension sent (e.g.
+The **Controls** drive the host the way Pipedrive would — they emit Events to your
+App Extension and resize the surface (the Dev Tool never sends Commands; only the
+app can):
+
+- **Theme** — emit `USER_SETTINGS_CHANGE` (`light` / `dark`).
+- **Visibility** — emit `VISIBILITY` (`is_visible` + `invoker`).
+- **Page** — emit `PAGE_VISIBILITY_STATE` (`visible` / `hidden`).
+- **Resize** — resize the active surface, clamped to that surface's bounds.
+
+The **Active Log** records activity, newest-first, each entry tagged with its
+direction: the Commands the App Extension sent (e.g.
 `app → host command: show_snackbar …`), the Tracks it fired, and the Events the
-host pushed back (e.g. `host → app event: user_settings_change …`). The panel is
-capped in height and scrolls.
+host pushed back (e.g. `host → app event: visibility …` — including the
+user-invoked `VISIBILITY` fired when you collapse the panel). The panel is capped
+in height and scrolls.
 
 Choose the corner, or turn it off entirely:
 
@@ -372,8 +384,8 @@ const host = startPipedriveMockHost();
 host.devTool.setPosition('top-right'); // bottom-left | bottom-right | top-left | top-right
 ```
 
-> More Dev Tool controls (emitting events, resizing the surface, toggling focus
-> mode) are in progress — see
+> The focus-mode toggle and full surface-type awareness are still in progress —
+> see
 > [`docs/plans/2026-06-16-dev-tool-design.md`](./docs/plans/2026-06-16-dev-tool-design.md).
 
 ## Examples

@@ -138,6 +138,8 @@ const COMMAND_OPEN_MODAL = 'open_modal';
 const COMMAND_CLOSE_MODAL = 'close_modal';
 const EVENT_CLOSE_CUSTOM_MODAL = 'close_custom_modal';
 const EVENT_VISIBILITY = 'visibility';
+const EVENT_USER_SETTINGS_CHANGE = 'user_settings_change';
+const EVENT_PAGE_VISIBILITY_STATE = 'page_visibility_state';
 
 /** Returned by GET_SIGNED_TOKEN when the consumer provides no override. */
 const DEFAULT_SIGNED_TOKEN = 'dev-signed-token';
@@ -595,7 +597,8 @@ const DEV_TOOL_STYLES = `
   .pd-mock-dev-tool {
     position: fixed;
     z-index: 2147483647;
-    width: 320px;
+    width: 580px;
+    max-width: calc(100vw - 24px);
     max-height: 500px;
     display: flex;
     flex-direction: column;
@@ -610,8 +613,56 @@ const DEV_TOOL_STYLES = `
   .pd-mock-dev-tool[data-collapsed="true"] {
     max-height: none;
   }
-  .pd-mock-dev-tool[data-collapsed="true"] .pd-mock-dev-tool-log {
+  .pd-mock-dev-tool[data-collapsed="true"] .pd-mock-dev-tool-body {
     display: none;
+  }
+  .pd-mock-dev-tool-body {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .pd-mock-dev-tool-controls {
+    flex: 0 0 240px;
+    overflow-y: auto;
+    padding: 10px 12px;
+    border-right: 1px solid var(--pd-mock-border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .pd-mock-dev-tool-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .pd-mock-dev-tool-control-label {
+    flex: 0 0 4.5rem;
+    color: var(--pd-mock-muted);
+  }
+  .pd-mock-dev-tool-control select,
+  .pd-mock-dev-tool-control input {
+    flex: 1 1 auto;
+    min-width: 0;
+    font: inherit;
+    padding: 3px 5px;
+    border: 1px solid var(--pd-mock-border);
+    border-radius: 5px;
+    background: var(--pd-mock-surface-bg);
+    color: var(--pd-mock-fg);
+  }
+  .pd-mock-dev-tool-control button {
+    flex: 0 0 auto;
+    padding: 4px 10px;
+    border: none;
+    border-radius: 5px;
+    background: #017737;
+    color: #ffffff;
+    font: 600 12px/1 system-ui, sans-serif;
+    cursor: pointer;
+  }
+  .pd-mock-dev-tool-control button:hover {
+    background: #015e2c;
   }
   .pd-mock-dev-tool[data-position="bottom-left"] { bottom: 12px; left: 12px; }
   .pd-mock-dev-tool[data-position="bottom-right"] { bottom: 12px; right: 12px; }
@@ -659,10 +710,10 @@ const DEV_TOOL_STYLES = `
     margin: 0;
     padding: 0;
     list-style: none;
-    /* flex child must be allowed to shrink (min-height: 0) so it scrolls inside
-       the panel's max-height instead of stretching the panel past it. */
+    /* fills the rest of the body row and scrolls vertically; min-width: 0 lets
+       it shrink instead of forcing the panel wider. */
     flex: 1 1 auto;
-    min-height: 0;
+    min-width: 0;
     overflow-y: auto;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 11.5px;
@@ -849,12 +900,123 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     header.appendChild(toggle);
     devToolEl.appendChild(header);
 
+    // Two columns: Controls on the left, the Active Log on the right.
+    const body = document.createElement('div');
+    body.className = 'pd-mock-dev-tool-body';
+
+    const controls = document.createElement('div');
+    controls.className = 'pd-mock-dev-tool-controls';
+    controls.setAttribute('aria-label', 'Controls');
+
+    // An event-emitter row: a label, one select per payload field, and an Emit
+    // button that builds the SDK-shaped payload from the selected values.
+    const addEmitControl = (
+      label: string,
+      emitAriaLabel: string,
+      eventName: string,
+      fields: { ariaLabel: string; options: string[] }[],
+      buildPayload: (values: string[]) => unknown,
+    ): void => {
+      const row = document.createElement('div');
+      row.className = 'pd-mock-dev-tool-control';
+      const labelEl = document.createElement('span');
+      labelEl.className = 'pd-mock-dev-tool-control-label';
+      labelEl.textContent = label;
+      row.appendChild(labelEl);
+      const selects: HTMLSelectElement[] = [];
+      for (const field of fields) {
+        const select = document.createElement('select');
+        select.setAttribute('aria-label', field.ariaLabel);
+        for (const value of field.options) {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = value;
+          select.appendChild(option);
+        }
+        selects.push(select);
+        row.appendChild(select);
+      }
+      const emit = document.createElement('button');
+      emit.type = 'button';
+      emit.setAttribute('aria-label', emitAriaLabel);
+      emit.textContent = 'Emit';
+      emit.addEventListener('click', () => {
+        emitEvent(
+          eventName,
+          buildPayload(selects.map((select) => select.value)),
+        );
+      });
+      row.appendChild(emit);
+      controls.appendChild(row);
+    };
+
+    addEmitControl(
+      'Theme',
+      'Emit user settings change',
+      EVENT_USER_SETTINGS_CHANGE,
+      [{ ariaLabel: 'Theme', options: ['light', 'dark'] }],
+      ([theme]) => ({ theme }),
+    );
+    addEmitControl(
+      'Visibility',
+      'Emit visibility',
+      EVENT_VISIBILITY,
+      [
+        { ariaLabel: 'Is visible', options: ['true', 'false'] },
+        { ariaLabel: 'Invoker', options: ['user', 'command'] },
+      ],
+      ([isVisible, invoker]) => ({
+        is_visible: isVisible === 'true',
+        context: { invoker },
+      }),
+    );
+    addEmitControl(
+      'Page',
+      'Emit page visibility state',
+      EVENT_PAGE_VISIBILITY_STATE,
+      [{ ariaLabel: 'State', options: ['visible', 'hidden'] }],
+      ([state]) => ({ state }),
+    );
+
+    // Resize — width/height inputs that resize the active surface. `applySize`
+    // enforces the per-surface bounds, exactly like the real RESIZE command.
+    const resizeRow = document.createElement('div');
+    resizeRow.className = 'pd-mock-dev-tool-control';
+    const resizeLabel = document.createElement('span');
+    resizeLabel.className = 'pd-mock-dev-tool-control-label';
+    resizeLabel.textContent = 'Resize';
+    const widthInput = document.createElement('input');
+    widthInput.type = 'number';
+    widthInput.setAttribute('aria-label', 'Resize width');
+    widthInput.placeholder = 'w';
+    const heightInput = document.createElement('input');
+    heightInput.type = 'number';
+    heightInput.setAttribute('aria-label', 'Resize height');
+    heightInput.placeholder = 'h';
+    const resizeApply = document.createElement('button');
+    resizeApply.type = 'button';
+    resizeApply.setAttribute('aria-label', 'Apply resize');
+    resizeApply.textContent = 'Apply';
+    resizeApply.addEventListener('click', () => {
+      applySize(
+        {
+          width: widthInput.value !== '' ? Number(widthInput.value) : undefined,
+          height:
+            heightInput.value !== '' ? Number(heightInput.value) : undefined,
+        },
+        'dev tool resize',
+      );
+    });
+    resizeRow.append(resizeLabel, widthInput, heightInput, resizeApply);
+    controls.appendChild(resizeRow);
+
     const log = document.createElement('ul');
     log.className = 'pd-mock-dev-tool-log';
     log.setAttribute('aria-label', 'Active log');
-    devToolEl.appendChild(log);
     devToolLog = log;
 
+    body.append(controls, log);
+    devToolEl.appendChild(body);
     shadowRoot.appendChild(devToolEl);
   }
 
@@ -1183,6 +1345,12 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
       collapse.addEventListener('click', () => {
         const collapsed = el.classList.toggle('pd-mock-collapsed');
         collapse.setAttribute('aria-label', collapsed ? 'Expand' : 'Collapse');
+        // Hiding/showing the panel changes the app's visibility, so tell it —
+        // user-invoked, like closing a floating window (ADR-0006).
+        emitEvent(EVENT_VISIBILITY, {
+          is_visible: !collapsed,
+          context: { invoker: 'user' },
+        });
       });
       header.appendChild(collapse);
     }
