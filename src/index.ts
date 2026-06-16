@@ -40,6 +40,13 @@ export interface ModalResult {
   id?: number;
 }
 
+/** Corner the Dev Tool overlay anchors to. */
+export type DevToolPosition =
+  | 'bottom-left'
+  | 'bottom-right'
+  | 'top-left'
+  | 'top-right';
+
 /** Configuration for the Mock Host. Fields land incrementally; see the design. */
 export interface MockHostConfig {
   /**
@@ -78,9 +85,14 @@ export interface MockHostConfig {
   appIcon?: string;
   /**
    * The host's own interactive Dev Tool overlay (ADR-0009). On by default; pass
-   * `false` to omit it entirely.
+   * `false` to omit it entirely, or an object to configure it.
    */
-  devTool?: boolean;
+  devTool?:
+    | boolean
+    | {
+        /** Corner the Dev Tool anchors to. Defaults to `'bottom-left'`. */
+        position?: DevToolPosition;
+      };
 }
 
 /** A single command the App Extension sent, captured for inspection in tests. */
@@ -97,6 +109,11 @@ export interface MockHost {
   emit(event: string, data: unknown): void;
   /** The commands the App Extension has sent so far. */
   getCalls(): MockHostCall[];
+  /** Runtime controls for the Dev Tool overlay (no-ops when it is disabled). */
+  readonly devTool: {
+    /** Move the Dev Tool to a corner at runtime (e.g. per view). */
+    setPosition(position: DevToolPosition): void;
+  };
   /** Stop listening and remove all rendered UI. */
   teardown(): void;
 }
@@ -678,6 +695,7 @@ const NOOP_HOST: MockHost = {
   getCalls() {
     return [];
   },
+  devTool: { setPosition() {} },
   teardown() {},
 };
 
@@ -733,9 +751,10 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
 
   const calls: MockHostCall[] = [];
 
-  // The Active Log's list element; assigned when the Dev Tool is built, null when
-  // the Dev Tool is off. `logToDevTool` prepends entries newest-first and no-ops
-  // when there is no log to write to.
+  // The Dev Tool's root and Active-Log elements; assigned when the Dev Tool is
+  // built, null when it is off. `logToDevTool` prepends entries newest-first and
+  // no-ops when there is no log to write to.
+  let devToolElement: HTMLElement | null = null;
   let devToolLog: HTMLElement | null = null;
   const logToDevTool = (
     direction: string,
@@ -788,6 +807,10 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // Dev Tool: the host's own control overlay, rendered into the shadow root so
   // it needs no consumer markup (ADR-0009). On by default.
   if (config.devTool !== false) {
+    const devToolConfig =
+      typeof config.devTool === 'object' ? config.devTool : {};
+    const position = devToolConfig.position ?? 'bottom-left';
+
     const devToolStyle = document.createElement('style');
     devToolStyle.textContent = DEV_TOOL_STYLES;
     shadowRoot.appendChild(devToolStyle);
@@ -795,7 +818,8 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     const devToolEl = document.createElement('section');
     devToolEl.className = 'pd-mock-dev-tool';
     devToolEl.setAttribute('aria-label', 'Mock host dev tool');
-    devToolEl.setAttribute('data-position', 'bottom-left');
+    devToolEl.setAttribute('data-position', position);
+    devToolElement = devToolEl;
 
     const header = document.createElement('header');
     header.className = 'pd-mock-dev-tool-header';
@@ -1552,6 +1576,11 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     },
     getCalls() {
       return [...calls];
+    },
+    devTool: {
+      setPosition(position) {
+        devToolElement?.setAttribute('data-position', position);
+      },
     },
     teardown() {
       window.removeEventListener('message', onMessage);

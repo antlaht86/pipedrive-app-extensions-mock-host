@@ -72,6 +72,44 @@ test('a command the app sends appears in the Active Log', () => {
   host.teardown();
 });
 
+test('devTool.position anchors the dev tool to the given corner', () => {
+  const host = startPipedriveMockHost({
+    devTool: { position: 'bottom-right' },
+  });
+
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  expect(tool?.getAttribute('data-position')).toBe('bottom-right');
+
+  host.teardown();
+});
+
+test('host.devTool.setPosition moves the dev tool at runtime', () => {
+  const host = startPipedriveMockHost();
+
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  expect(tool?.getAttribute('data-position')).toBe('bottom-left');
+
+  host.devTool.setPosition('top-right');
+  expect(tool?.getAttribute('data-position')).toBe('top-right');
+
+  host.teardown();
+});
+
+test('devTool defaults to the bottom-left corner', () => {
+  const host = startPipedriveMockHost();
+
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  expect(tool?.getAttribute('data-position')).toBe('bottom-left');
+
+  host.teardown();
+});
+
 test('the dev tool can be collapsed and expanded via its toggle', () => {
   const host = startPipedriveMockHost();
 

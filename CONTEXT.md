@@ -98,9 +98,11 @@ shipped package.
 _Avoid_: playground (that is the external sample app), panel, inspector.
 
 **Active Log**:
-The Dev Tool's running record of what crosses the host boundary — the Commands
-the App Extension sent, the Events the host pushed back, Tracks received, and
-dev diagnostics. On by default; can be toggled off within the Dev Tool.
+The Dev Tool's running record of host↔App-Extension activity and the Dev Tool's
+own actions — the Commands the App Extension sent, the Events the host pushed
+back, Tracks received, dev diagnostics, and Dev Tool actions (a resize or focus
+toggle the developer triggered from the Dev Tool itself). On by default; can be
+toggled off within the Dev Tool.
 _Avoid_: console, history, trace.
 
 ## Example dialogue

@@ -99,17 +99,17 @@ In a plain HTML page, load the SDK's UMD build and this package's IIFE build
 `startPipedriveMockHost(config?)` accepts a `MockHostConfig`. Every field is
 optional:
 
-| Option           | Type                                                         | Default              | Purpose                                                                                                                       |
-| ---------------- | ------------------------------------------------------------ | -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`        | `boolean`                                                    | `true`               | Turn the host off without removing the call (e.g. `{ enabled: import.meta.env.DEV }`). When `false`, returns an inert handle. |
-| `theme`          | `'light' \| 'dark'`                                          | `'light'`            | Visual theme for the host's own mock UI.                                                                                      |
-| `onConfirmation` | `(args) => boolean \| Promise<boolean>`                      | —                    | Headless override for `SHOW_CONFIRMATION`; return whether the user confirmed. Omit to render an interactive dialog.           |
-| `getSignedToken` | `() => string \| Promise<string>`                            | `'dev-signed-token'` | Provides the token returned by `GET_SIGNED_TOKEN`. Return a real dev JWT to exercise your backend's verify path.              |
-| `onModal`        | `(attrs) => ModalResult \| Promise<ModalResult>`             | —                    | Headless override for `OPEN_MODAL`; return the modal result instead of rendering a dialog.                                    |
-| `customModals`   | `Record<string, string> \| ((attrs) => string \| undefined)` | —                    | Maps a custom-modal `action_id` to the URL the modal iframe should load.                                                      |
-| `appName`        | `string`                                                     | `'App Extension'`    | Name shown in the surface header bar the host injects onto each surface.                                                      |
-| `appIcon`        | `string`                                                     | a generic glyph      | Icon shown in the surface header bar — a URL (rendered as an `<img>`) or a short glyph/emoji.                                 |
-| `devTool`        | `boolean`                                                    | `true`               | Show the host's interactive Dev Tool overlay (see [Dev Tool](#dev-tool)). Pass `false` to omit it.                            |
+| Option           | Type                                                         | Default              | Purpose                                                                                                                                      |
+| ---------------- | ------------------------------------------------------------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`        | `boolean`                                                    | `true`               | Turn the host off without removing the call (e.g. `{ enabled: import.meta.env.DEV }`). When `false`, returns an inert handle.                |
+| `theme`          | `'light' \| 'dark'`                                          | `'light'`            | Visual theme for the host's own mock UI.                                                                                                     |
+| `onConfirmation` | `(args) => boolean \| Promise<boolean>`                      | —                    | Headless override for `SHOW_CONFIRMATION`; return whether the user confirmed. Omit to render an interactive dialog.                          |
+| `getSignedToken` | `() => string \| Promise<string>`                            | `'dev-signed-token'` | Provides the token returned by `GET_SIGNED_TOKEN`. Return a real dev JWT to exercise your backend's verify path.                             |
+| `onModal`        | `(attrs) => ModalResult \| Promise<ModalResult>`             | —                    | Headless override for `OPEN_MODAL`; return the modal result instead of rendering a dialog.                                                   |
+| `customModals`   | `Record<string, string> \| ((attrs) => string \| undefined)` | —                    | Maps a custom-modal `action_id` to the URL the modal iframe should load.                                                                     |
+| `appName`        | `string`                                                     | `'App Extension'`    | Name shown in the surface header bar the host injects onto each surface.                                                                     |
+| `appIcon`        | `string`                                                     | a generic glyph      | Icon shown in the surface header bar — a URL (rendered as an `<img>`) or a short glyph/emoji.                                                |
+| `devTool`        | `boolean \| { position? }`                                   | `true`               | Show the host's interactive Dev Tool overlay (see [Dev Tool](#dev-tool)). Pass `false` to omit it, or `{ position }` to dock it to a corner. |
 
 ### Theme and header branding
 
@@ -348,8 +348,8 @@ id, and treats that as the surface `RESIZE` sizes and `GET_METADATA` measures:
 ## Dev Tool
 
 The host renders its own interactive **Dev Tool** overlay — no consumer markup
-needed, it appears as soon as the host starts. It is docked to the bottom-left
-corner and can be collapsed to a compact launcher.
+needed, it appears as soon as the host starts. It docks to a corner
+(`bottom-left` by default) and can be collapsed to a compact launcher.
 
 Its **Active Log** records what crosses the host boundary, newest-first, each
 entry tagged with its direction: the Commands the App Extension sent (e.g.
@@ -357,10 +357,19 @@ entry tagged with its direction: the Commands the App Extension sent (e.g.
 host pushed back (e.g. `host → app event: user_settings_change …`). The panel is
 capped in height and scrolls.
 
-Turn it off with `devTool: false`:
+Choose the corner, or turn it off entirely:
 
 ```ts
-startPipedriveMockHost({ devTool: false });
+startPipedriveMockHost({ devTool: false }); // off
+startPipedriveMockHost({ devTool: { position: 'bottom-right' } }); // pick a corner
+```
+
+To move it at runtime — e.g. a different corner per view in a single-page app —
+call `setPosition` on the controller:
+
+```ts
+const host = startPipedriveMockHost();
+host.devTool.setPosition('top-right'); // bottom-left | bottom-right | top-left | top-right
 ```
 
 > More Dev Tool controls (emitting events, resizing the surface, toggling focus

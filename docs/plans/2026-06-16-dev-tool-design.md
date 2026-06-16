@@ -99,15 +99,23 @@ later if needed.)
 
 ## Active Log
 
-A running, bounded record of what crosses the host boundary. Entry types, each
-tagged with a direction and timestamp and an expandable JSON payload:
+A running, bounded record of host↔app activity and the Dev Tool's own actions.
+Entry types, each tagged with a direction and timestamp and an expandable JSON
+payload:
 
-| Type       | Direction  | Content                                                              |
-| ---------- | ---------- | -------------------------------------------------------------------- |
-| Command    | app → host | name, args, the reply value                                          |
-| Track      | app → host | name (fire-and-forget)                                               |
-| Event      | host → app | name, data (host-fired and Dev-Tool-fired alike)                     |
-| Diagnostic | host       | the dev-only warnings (inapplicable command, out-of-range resize, …) |
+| Type            | Direction  | Content                                                              |
+| --------------- | ---------- | -------------------------------------------------------------------- |
+| Command         | app → host | name, args, the reply value                                          |
+| Track           | app → host | name (fire-and-forget)                                               |
+| Event           | host → app | name, data (host-fired and Dev-Tool-fired alike)                     |
+| Diagnostic      | host       | the dev-only warnings (inapplicable command, out-of-range resize, …) |
+| Dev Tool action | dev tool   | a resize or focus-mode toggle triggered from the Dev Tool itself     |
+
+The Dev-Tool-action entry exists because a resize/focus toggled from the Dev Tool
+changes host-owned surface state **without crossing the host↔app boundary** — so
+it is neither a Command (the app sent nothing; logging it as one would fake an
+inbound command, forbidden by ADR-0009) nor an Event. It is logged honestly as
+its own kind so the log is a complete activity record.
 
 - **Ring buffer** (cap ~200 entries) so it cannot grow unbounded.
 - **Capture is always on** (cheap); the `log` toggle controls whether the panel
@@ -125,9 +133,22 @@ tagged with a direction and timestamp and an expandable JSON payload:
 
 ## Visual / layout
 
-- Anchored to `devTool.position` (default `bottom-left`); `position: fixed`.
-- Collapsible: a compact open panel ↔ a small launcher button (e.g. "🛠 mock").
-  `startCollapsed` picks the initial state.
+- **Two columns**, side by side under a full-width header: **Controls on the
+  left** (fixed ~240px — the event emitters, resize, focus-mode toggle), the
+  **Active Log on the right** (flexible ~320px). Panel ≈ 580px wide, capped at
+  **500px** tall; each column scrolls independently.
+- Anchored to `devTool.position` (default `bottom-left`); `position: fixed`. The
+  playground sets the position per page so the tool clears that page's surface —
+  e.g. the panel page (panel pinned to the left edge) docks the Dev Tool
+  `bottom-right`.
+- **Runtime repositioning.** `devTool.position` is read once at start, and the
+  host is a singleton, so a consumer that wants a different corner per view calls
+  `host.devTool.setPosition(corner)` at runtime (it just rewrites the
+  `data-position` attribute). The `MockHost.devTool` namespace holds this and
+  future runtime controls (collapse/expand, log show/hide); it no-ops when the
+  Dev Tool is disabled.
+- Collapsible: the whole two-column panel ↔ a small launcher button (e.g.
+  "● Mock host"). `startCollapsed` picks the initial state.
 - `z-index` at the snackbar level; the default `bottom-left` corner avoids
   overlap. A centred modal may transiently cover it — acceptable; collapse or
   close the modal. If the developer overrides `position` to `bottom-right`, the

@@ -157,6 +157,9 @@
         const theme = new URLSearchParams(location.search).get('theme');
         const host = startPipedriveMockHost({
           theme: theme === 'dark' ? 'dark' : 'light',
+          // The panel is pinned to the left edge on this page, so dock the Dev
+          // Tool bottom-right to keep the two clear of each other.
+          devTool: { position: 'bottom-right' },
           // A relative URL, not inline HTML. Inline closing body markup in this
           // script would confuse live-reload servers (e.g. VS Code Live Server)
           // that inject their snippet before the first closing body tag.
