@@ -288,6 +288,65 @@ test('collapsing the panel emits VISIBILITY to the app', () => {
   panel.remove();
 });
 
+test('the floating-window toggle is shown only for a floating window', () => {
+  const fw = document.createElement('div');
+  fw.className = 'pd-mock-floating-window';
+  document.body.appendChild(fw);
+
+  host = startPipedriveMockHost();
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  const toggle = tool?.querySelector<HTMLButtonElement>(
+    'button[aria-label="Toggle floating window visibility"]',
+  );
+
+  expect(
+    toggle?.closest('.pd-mock-dev-tool-control')?.hasAttribute('hidden'),
+  ).toBe(false);
+});
+
+test('the floating-window toggle is hidden for a panel', () => {
+  const panel = document.createElement('div');
+  panel.className = 'pd-mock-panel';
+  document.body.appendChild(panel);
+
+  host = startPipedriveMockHost();
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  const toggle = tool?.querySelector<HTMLButtonElement>(
+    'button[aria-label="Toggle floating window visibility"]',
+  );
+
+  expect(
+    toggle?.closest('.pd-mock-dev-tool-control')?.hasAttribute('hidden'),
+  ).toBe(true);
+});
+
+test('the floating-window toggle hides and re-shows the window', () => {
+  const fw = document.createElement('div');
+  fw.className = 'pd-mock-floating-window';
+  document.body.appendChild(fw);
+
+  host = startPipedriveMockHost();
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  const toggle = tool?.querySelector<HTMLButtonElement>(
+    'button[aria-label="Toggle floating window visibility"]',
+  );
+
+  toggle?.click();
+  expect(fw.style.display).toBe('none');
+  const log = tool?.querySelector('[aria-label="Active log"]');
+  expect(log?.textContent).toContain('visibility');
+  expect(log?.textContent).toContain('"is_visible":false');
+
+  toggle?.click();
+  expect(fw.style.display).not.toBe('none');
+});
+
 test('the focus-mode control is shown when a floating window is active', () => {
   const fw = document.createElement('div');
   fw.className = 'pd-mock-floating-window';

@@ -58,13 +58,14 @@ light-DOM node. A dedicated `ensureDevTool()` builder, idempotent, created durin
 
 ## Controls
 
-| Control                            | Mechanism                                     | Notes                                                                                                                                              |
-| ---------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Resize** (width + height inputs) | Host sets the active Surface's dimensions     | Reuses the real `RESIZE` bounds validation (`SURFACE_BOUNDS`); out-of-range rejected with the same diagnostic. Disabled when no Surface is active. |
-| **Emit `USER_SETTINGS_CHANGE`**    | `emitEvent`                                   | Theme selector `light` / `dark` → `{ theme }`.                                                                                                     |
-| **Emit `VISIBILITY`**              | `emitEvent`                                   | `{ is_visible, context: { invoker } }`; `invoker` selector `user` / `command`.                                                                     |
-| **Emit `PAGE_VISIBILITY_STATE`**   | `emitEvent`                                   | `{ state }` selector `visible` / `hidden`.                                                                                                         |
-| **Focus mode** toggle              | Host disables the floating window's close (X) | Shown only when the active Surface is a Floating Window.                                                                                           |
+| Control                            | Mechanism                                         | Notes                                                                                                                                              |
+| ---------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Resize** (width + height inputs) | Host sets the active Surface's dimensions         | Reuses the real `RESIZE` bounds validation (`SURFACE_BOUNDS`); out-of-range rejected with the same diagnostic. Disabled when no Surface is active. |
+| **Emit `USER_SETTINGS_CHANGE`**    | `emitEvent`                                       | Theme selector `light` / `dark` → `{ theme }`.                                                                                                     |
+| **Emit `VISIBILITY`**              | `emitEvent`                                       | `{ is_visible, context: { invoker } }`; `invoker` selector `user` / `command`.                                                                     |
+| **Emit `PAGE_VISIBILITY_STATE`**   | `emitEvent`                                       | `{ state }` selector `visible` / `hidden`.                                                                                                         |
+| **Focus mode** toggle              | Host disables the floating window's close (X)     | Shown only when the active Surface is a Floating Window.                                                                                           |
+| **Floating window** toggle         | Host shows/hides the surface + fires `VISIBILITY` | Shown only when the active Surface is a Floating Window; reuses `setFloatingWindowVisible` (shared with SHOW/HIDE_FLOATING_WINDOW).                |
 
 Event payloads match the installed SDK types exactly (`EventResponse` in
 `dist/types.d.ts`): `USER_SETTINGS_CHANGE` carries only `theme`, so there is no

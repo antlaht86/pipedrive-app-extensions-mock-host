@@ -361,12 +361,14 @@ app can):
 - **Visibility** — emit `VISIBILITY` (`is_visible` + `invoker`).
 - **Page** — emit `PAGE_VISIBILITY_STATE` (`visible` / `hidden`).
 - **Resize** — resize the active surface, clamped to that surface's bounds.
-- **Focus mode** — disable the floating window's close button (shown only while a
-  floating window is the active surface).
+- **Focus mode** — disable the floating window's close button (floating-window
+  only).
+- **Floating window** — show/hide the floating window (floating-window only).
 
-The controls are **surface-type aware**: the Focus mode control appears only when
-a Floating Window is active, and the Dev Tool tracks the DOM so it stays in sync
-as your framework mounts and unmounts the surface wrapper.
+The controls are **surface-type aware**: the Focus mode and Floating window
+controls appear only while a Floating Window is the active surface, and the Dev
+Tool tracks the DOM so it stays in sync as your framework mounts and unmounts the
+surface wrapper.
 
 The **Active Log** records activity, newest-first, each entry tagged with its
 direction: the Commands the App Extension sent (e.g.

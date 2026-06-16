@@ -811,6 +811,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // the focus-mode row (floating-window only) and the resize row (disabled with
   // no active surface). Plus the observer itself.
   let devToolFocusRow: HTMLElement | null = null;
+  let devToolWindowRow: HTMLElement | null = null;
   let devToolResizeRow: HTMLElement | null = null;
   let devToolResizeLabel: HTMLElement | null = null;
   let devToolObserver: MutationObserver | null = null;
@@ -1042,6 +1043,30 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     focusRow.append(focusLabel, focusToggle);
     controls.appendChild(focusRow);
     devToolFocusRow = focusRow;
+
+    // Floating window visibility — floating-window only. Reads the surface's
+    // current display so it stays correct even if hidden via the header X.
+    const windowRow = document.createElement('div');
+    windowRow.className = 'pd-mock-dev-tool-control';
+    windowRow.hidden = true;
+    const windowLabel = document.createElement('span');
+    windowLabel.className = 'pd-mock-dev-tool-control-label';
+    windowLabel.textContent = 'Floating window';
+    const windowToggle = document.createElement('button');
+    windowToggle.type = 'button';
+    windowToggle.setAttribute(
+      'aria-label',
+      'Toggle floating window visibility',
+    );
+    windowToggle.textContent = 'Visible';
+    windowToggle.addEventListener('click', () => {
+      const hidden = resolveSurface().style.display === 'none';
+      setFloatingWindowVisible(hidden);
+      windowToggle.textContent = hidden ? 'Visible' : 'Hidden';
+    });
+    windowRow.append(windowLabel, windowToggle);
+    controls.appendChild(windowRow);
+    devToolWindowRow = windowRow;
 
     const log = document.createElement('ul');
     log.className = 'pd-mock-dev-tool-log';
@@ -1538,6 +1563,16 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     }
   };
 
+  // Show/hide the active floating-window surface and tell the app via VISIBILITY.
+  // Shared by SHOW/HIDE_FLOATING_WINDOW and the Dev Tool's window toggle.
+  const setFloatingWindowVisible = (visible: boolean): void => {
+    resolveSurface().style.display = visible ? '' : 'none';
+    emitEvent(EVENT_VISIBILITY, {
+      is_visible: visible,
+      context: { invoker: 'command' },
+    });
+  };
+
   // Guard for commands that only apply to a floating window (SHOW/HIDE_FLOATING
   // _WINDOW, SET_NOTIFICATION, SET_FOCUS_MODE — Pipedrive UI rules, not in the
   // SDK). Logs a diagnostic and returns false when the active surface is not a
@@ -1726,13 +1761,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
           reply();
           break;
         }
-        // Toggle the active floating-window surface (matched by class or id).
-        resolveSurface().style.display = visible ? '' : 'none';
-        // Toggling the window's visibility fires a VISIBILITY event.
-        emitEvent(EVENT_VISIBILITY, {
-          is_visible: visible,
-          context: { invoker: 'command' },
-        });
+        setFloatingWindowVisible(visible);
         reply();
         break;
       }
@@ -1779,8 +1808,18 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   if (devToolElement) {
     const refreshDevToolSurface = (): void => {
       const type = surfaceTypeOf(resolveSurface());
+      const isFloatingWindow = type === 'pd-mock-floating-window';
       if (devToolFocusRow) {
-        devToolFocusRow.hidden = type !== 'pd-mock-floating-window';
+        devToolFocusRow.hidden = !isFloatingWindow;
+      }
+      if (devToolWindowRow) {
+        devToolWindowRow.hidden = !isFloatingWindow;
+        const button =
+          devToolWindowRow.querySelector<HTMLButtonElement>('button');
+        if (button) {
+          button.textContent =
+            resolveSurface().style.display === 'none' ? 'Hidden' : 'Visible';
+        }
       }
       if (devToolResizeRow) {
         // No surface (body fallback) → nothing to size, so disable the control.
@@ -1806,7 +1845,9 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['class', 'id'],
+      // 'style' so the window toggle's label re-syncs when the surface is hidden
+      // via its header X (a display change, not a class/id change).
+      attributeFilter: ['class', 'id', 'style'],
     });
   }
 
