@@ -101,8 +101,8 @@ _Avoid_: playground (that is the external sample app), panel, inspector.
 The Dev Tool's running record of host↔App-Extension activity and the Dev Tool's
 own actions — the Commands the App Extension sent, the Events the host pushed
 back, Tracks received, dev diagnostics, and Dev Tool actions (a resize or focus
-toggle the developer triggered from the Dev Tool itself). On by default; can be
-toggled off within the Dev Tool.
+toggle the developer triggered from the Dev Tool itself). Shown whenever the Dev
+Tool is open.
 _Avoid_: console, history, trace.
 
 ## Example dialogue

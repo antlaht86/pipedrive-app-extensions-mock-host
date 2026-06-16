@@ -46,10 +46,22 @@ host's styles never leak into your app and your app's styles never reach the
 host UI. The published package contains **zero** third-party code and has no
 runtime dependencies.
 
-[image: an architecture diagram showing the App Extension code → Real SDK →
-postMessage / MessageChannel → Mock Host → Shadow DOM UI, with an arrow back for
-events. Use it in the "How it works" section. Alt: "Data flow between the App
-Extension, the Real SDK, and the Mock Host over a MessageChannel."]
+Data flow between the App Extension, the Real SDK, and the Mock Host over a
+`MessageChannel` — your code drives the SDK, the SDK and host exchange messages
+on the same window, and the host renders its UI and pushes events back:
+
+```mermaid
+flowchart LR
+    code["App Extension code"]
+    sdk["Real SDK<br/>@pipedrive/app-extensions-sdk"]
+    host["Mock Host<br/>listens on the same window"]
+    ui["Shadow DOM UI<br/>surfaces · snackbar · modals · Dev Tool"]
+
+    code <-->|"execute() · listen() · track()"| sdk
+    sdk -->|"handshake, Commands, Tracks<br/>(postMessage / MessageChannel)"| host
+    host -.->|"Command replies & Events"| sdk
+    host --> ui
+```
 
 ## Requirements
 
@@ -167,12 +179,13 @@ startPipedriveMockHost({
 
 `startPipedriveMockHost()` returns a `MockHost` controller:
 
-| Member       | Signature                       | Purpose                                                                                      |
-| ------------ | ------------------------------- | -------------------------------------------------------------------------------------------- |
-| `shadowRoot` | `ShadowRoot`                    | The open shadow root the host renders its UI into. Query it in tests (`within(shadowRoot)`). |
-| `emit`       | `(event: string, data) => void` | Push a host-driven event to the App Extension (e.g. `USER_SETTINGS_CHANGE`, `VISIBILITY`).   |
-| `getCalls`   | `() => MockHostCall[]`          | The commands the App Extension has sent so far (`{ command, args }`) — useful in tests.      |
-| `teardown`   | `() => void`                    | Stop listening and remove all rendered UI.                                                   |
+| Member       | Signature                       | Purpose                                                                                                                                         |
+| ------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shadowRoot` | `ShadowRoot`                    | The open shadow root the host renders its UI into. Query it in tests (`within(shadowRoot)`).                                                    |
+| `emit`       | `(event: string, data) => void` | Push a host-driven event to the App Extension (e.g. `USER_SETTINGS_CHANGE`, `VISIBILITY`).                                                      |
+| `getCalls`   | `() => MockHostCall[]`          | The commands the App Extension has sent so far (`{ command, args }`) — useful in tests.                                                         |
+| `devTool`    | `{ setPosition(p) => void }`    | Runtime controls for the Dev Tool overlay; `setPosition` moves it to a corner (no-op when the Dev Tool is disabled). See [Dev Tool](#dev-tool). |
+| `teardown`   | `() => void`                    | Stop listening and remove all rendered UI.                                                                                                      |
 
 ### Pushing events to the App Extension
 
