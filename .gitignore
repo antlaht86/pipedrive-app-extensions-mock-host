@@ -7,3 +7,4 @@ coverage
 __screenshots__
 .playwright-mcp
 .vitest-attachments
+.playwright-cli
