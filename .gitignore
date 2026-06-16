@@ -8,3 +8,8 @@ __screenshots__
 .playwright-mcp
 .vitest-attachments
 .playwright-cli
+
+# Local skill-manager installs (not part of the package)
+.agents
+.claude/skills
+skills-lock.json
