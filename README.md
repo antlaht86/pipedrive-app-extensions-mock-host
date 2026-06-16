@@ -15,10 +15,7 @@ Vue, Next.js, or plain vanilla JS.
 It does **not** replace the SDK. You keep using the real
 `@pipedrive/app-extensions-sdk`; this is the host it connects to.
 
-[image: a screenshot of a localhost dev page showing an App Extension panel with
-the host-injected header bar and a snackbar at the bottom-right corner — the
-"this is what the mock host renders" hero shot. Alt: "App Extension running on
-localhost with the mock host rendering a surface header and a snackbar."]
+![App Extension running on localhost with the mock host rendering a surface header and a snackbar.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/hero-panel-snackbar.png)
 
 ## How it works
 
@@ -279,10 +276,7 @@ const { windowWidth, windowHeight } = await sdk.execute(Command.GET_METADATA);
 const { token } = await sdk.execute(Command.GET_SIGNED_TOKEN);
 ```
 
-[image: a screenshot of the host-rendered snackbar and a confirmation dialog,
-taken from the testing/index.html playground after clicking "Snackbar" and
-"Confirmation". Alt: "A mock-host snackbar and confirmation dialog rendered over
-a dev page."]
+![A mock-host confirmation dialog rendered over a dimmed Custom Panel.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/snackbar-confirmation.png)
 
 ## Surfaces
 
@@ -344,18 +338,11 @@ id, and treats that as the surface `RESIZE` sizes and `GET_METADATA` measures:
 - **More than one wrapper?** The first in DOM order wins; the rest are ignored.
   Render only one surface wrapper at a time.
 
-[image: a close-up of the Custom Panel's injected header bar from
-testing/index.html — collapse chevron on the left, app icon + name, refresh and
-⋯ buttons on the right. Alt: "The mock host's Custom Panel header bar with
-collapse, app name, refresh, and more buttons."]
+![The mock host's Custom Panel header bar with collapse, app name, refresh, and more buttons.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/panel-header.png)
 
-[image: the Custom Modal surface (testing/modal.html) showing its header bar with
-the app name and a close X button. Alt: "A mock-host Custom Modal with a header
-bar and close button."]
+![A mock-host Custom Modal with a header bar and close button.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/custom-modal.png)
 
-[image: the Floating Window surface (testing/floating-window.html) anchored
-top-right, with its close X disabled while focus mode is on. Alt: "A mock-host
-floating window in focus mode with a disabled close button."]
+![A mock-host floating window in focus mode (top-right) with a disabled close button and a focus-mode badge.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/floating-window-focus.png)
 
 ## Examples
 
