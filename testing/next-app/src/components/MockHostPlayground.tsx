@@ -14,6 +14,16 @@ import AppExtensionsSDK, {
 
 export type SurfaceKind = 'panel' | 'modal' | 'floating-window';
 
+// One source per surface dimension, so the size, the "max" label, and the
+// size-coupled positioning (centre offset, gutter width) below all derive from
+// the same number and can't drift apart. Panel width is fixed by the host.
+const PANEL_W = 385;
+const PANEL_H = 750;
+const MODAL_W = 520;
+const MODAL_H = 420;
+const FW_W = 800;
+const FW_H = 700;
+
 const SURFACES: Record<
   SurfaceKind,
   {
@@ -32,33 +42,34 @@ const SURFACES: Record<
 > = {
   panel: {
     className: 'pd-mock-panel',
-    size: { height: 750 },
+    size: { height: PANEL_H },
     label: 'Custom Panel',
-    max: '385 × 750',
-    // Anchored by a fixed top (centred for the default 750px height) rather than
+    max: `${PANEL_W} × ${PANEL_H}`,
+    // Anchored by a fixed top (centred for the default height) rather than
     // translateY(-50%), so a RESIZE keeps the top edge put and grows downward.
     wrapperStyle: {
       position: 'fixed',
       left: '1.5rem',
-      top: 'calc(50vh - 375px)',
+      top: `calc(50vh - ${PANEL_H / 2}px)`,
     },
-    gutterStyle: { paddingLeft: 'calc(385px + 3rem)' },
+    gutterStyle: { paddingLeft: `calc(${PANEL_W}px + 3rem)` },
   },
   modal: {
     className: 'pd-mock-modal',
     // A centred dialog — kept to a readable size so the controls stay visible
     // to its left rather than being buried under a viewport-filling overlay.
-    size: { width: 520, height: 420 },
+    size: { width: MODAL_W, height: MODAL_H },
     label: 'Custom Modal',
-    max: '520 × 420',
-    gutterStyle: { paddingRight: 'calc(50vw + 280px + 1.5rem)' },
+    max: `${MODAL_W} × ${MODAL_H}`,
+    // Half the dialog (it is centred) plus a 44px clearance from its edge.
+    gutterStyle: { paddingRight: `calc(50vw + ${MODAL_W / 2}px + 2.75rem)` },
   },
   'floating-window': {
     className: 'pd-mock-floating-window',
-    size: { width: 800, height: 700 },
+    size: { width: FW_W, height: FW_H },
     label: 'Floating Window',
-    max: '800 × 700',
-    gutterStyle: { paddingRight: 'calc(800px + 3.5rem)' },
+    max: `${FW_W} × ${FW_H}`,
+    gutterStyle: { paddingRight: `calc(${FW_W}px + 3.5rem)` },
   },
 };
 
@@ -84,6 +95,21 @@ const NAV: { kind: SurfaceKind; href: string }[] = [
   { kind: 'panel', href: '/panel' },
   { kind: 'modal', href: '/modal' },
   { kind: 'floating-window', href: '/floating-window' },
+];
+
+// Host → app events the page can emit, as data (mirrors COMMANDS).
+const EVENTS: { label: string; event: Event; data: unknown }[] = [
+  {
+    label: 'VISIBILITY',
+    event: Event.VISIBILITY,
+    data: { is_visible: true, context: { invoker: 'user' } },
+  },
+  {
+    label: 'USER_SETTINGS_CHANGE',
+    event: Event.USER_SETTINGS_CHANGE,
+    data: { theme: 'dark' },
+  },
+  { label: 'CLOSE_CUSTOM_MODAL', event: Event.CLOSE_CUSTOM_MODAL, data: undefined },
 ];
 
 type LogEntry = { kind: 'cmd' | 'evt' | 'err'; line: string };
@@ -300,10 +326,9 @@ export default function MockHostPlayground({
           <div className="text-right text-xs text-muted">
             <div>
               <span
-                className={
-                  'mr-2 inline-block size-2 rounded-full ' +
-                  (ready ? 'bg-accent' : 'bg-muted')
-                }
+                className={`mr-2 inline-block size-2 rounded-full ${
+                  ready ? 'bg-accent' : 'bg-muted'
+                }`}
               />
               {ready ? 'connected' : 'booting…'}
             </div>
@@ -313,15 +338,12 @@ export default function MockHostPlayground({
           </div>
         </header>
 
+        {/* The modal reserves the right half of the viewport, so its page
+            stacks the controls into one column to fit the left band. */}
         <div
-          className={
-            'grid gap-6 ' +
-            // The modal reserves the right half of the viewport, so its page
-            // stacks the controls into one column to fit the left band.
-            (surface === 'modal'
-              ? ''
-              : 'lg:grid-cols-[1fr_minmax(320px,420px)]')
-          }
+          className={`grid gap-6 ${
+            surface === 'modal' ? '' : 'lg:grid-cols-[1fr_minmax(320px,420px)]'
+          }`}
         >
           <section className="space-y-6">
             <Group title="COMMANDS">
@@ -347,16 +369,14 @@ export default function MockHostPlayground({
                   className="flex items-center gap-3 rounded border border-line bg-elev px-3 py-1.5 text-[12.5px] text-fg transition-colors hover:border-accent disabled:opacity-40"
                 >
                   <span
-                    className={
-                      'relative inline-flex h-4 w-7 items-center rounded-full transition-colors ' +
-                      (fwVisible ? 'bg-accent' : 'bg-line')
-                    }
+                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                      fwVisible ? 'bg-accent' : 'bg-line'
+                    }`}
                   >
                     <span
-                      className={
-                        'inline-block size-3 rounded-full bg-[#05080c] transition-transform ' +
-                        (fwVisible ? 'translate-x-3.5' : 'translate-x-0.5')
-                      }
+                      className={`inline-block size-3 rounded-full bg-[#05080c] transition-transform ${
+                        fwVisible ? 'translate-x-3.5' : 'translate-x-0.5'
+                      }`}
                     />
                   </span>
                   {fwVisible ? 'visible — click to hide' : 'hidden — click to show'}
@@ -365,35 +385,15 @@ export default function MockHostPlayground({
             )}
 
             <Group title="EVENTS · host → app (emit)">
-              <Btn
-                disabled={!ready}
-                onClick={() =>
-                  emit('VISIBILITY', Event.VISIBILITY, {
-                    is_visible: true,
-                    context: { invoker: 'user' },
-                  })
-                }
-              >
-                emit VISIBILITY
-              </Btn>
-              <Btn
-                disabled={!ready}
-                onClick={() =>
-                  emit('USER_SETTINGS_CHANGE', Event.USER_SETTINGS_CHANGE, {
-                    theme: 'dark',
-                  })
-                }
-              >
-                emit USER_SETTINGS_CHANGE
-              </Btn>
-              <Btn
-                disabled={!ready}
-                onClick={() =>
-                  emit('CLOSE_CUSTOM_MODAL', Event.CLOSE_CUSTOM_MODAL, undefined)
-                }
-              >
-                emit CLOSE_CUSTOM_MODAL
-              </Btn>
+              {EVENTS.map((e) => (
+                <Btn
+                  key={e.label}
+                  disabled={!ready}
+                  onClick={() => emit(e.label, e.event, e.data)}
+                >
+                  emit {e.label}
+                </Btn>
+              ))}
             </Group>
 
             <p className="text-xs text-muted">
