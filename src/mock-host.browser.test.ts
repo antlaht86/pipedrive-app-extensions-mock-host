@@ -560,6 +560,48 @@ test('CLOSE_MODAL dismisses the open modal and resolves it closed', async () => 
   expect(ui.queryByRole('dialog')).toBeNull();
 });
 
+test('OPEN_MODAL renders the prefill values it received', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  void sdk.execute(Command.OPEN_MODAL, {
+    type: 'activity',
+    prefill: { subject: 'Follow-up phone call' },
+  });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  await ui.findByRole('dialog');
+  expect(ui.getByText('subject')).toBeTruthy();
+  expect(ui.getByText('Follow-up phone call')).toBeTruthy();
+});
+
+test('OPEN_MODAL shows HTML in a prefill value as literal text, not markup', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  void sdk.execute(Command.OPEN_MODAL, {
+    type: 'activity',
+    prefill: { note: 'Ask about <b>deal next steps</b>' },
+  });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  const dialog = await ui.findByRole('dialog');
+  // The angle brackets are shown verbatim and no <b> element is created.
+  expect(ui.getByText('Ask about <b>deal next steps</b>')).toBeTruthy();
+  expect(dialog.querySelector('b')).toBeNull();
+});
+
+test('OPEN_MODAL shows "(no prefill)" when no prefill was given', async () => {
+  host = startPipedriveMockHost();
+  const sdk = await createSdk();
+
+  void sdk.execute(Command.OPEN_MODAL, { type: 'deal' });
+
+  const ui = within(host.shadowRoot as unknown as HTMLElement);
+  await ui.findByRole('dialog');
+  expect(ui.getByText('(no prefill)')).toBeTruthy();
+});
+
 test('OPEN_MODAL custom_modal renders an iframe to the configured URL', async () => {
   host = startPipedriveMockHost({
     customModals: { settings: 'https://example.com/modals/settings' },

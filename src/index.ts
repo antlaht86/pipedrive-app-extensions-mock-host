@@ -301,6 +301,28 @@ const CONFIRMATION_STYLES = `
     margin: 0 0 16px;
     color: var(--pd-mock-muted);
   }
+  .pd-mock-prefill {
+    margin: 0 0 16px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    font-size: 13px;
+  }
+  .pd-mock-prefill-key {
+    color: var(--pd-mock-muted);
+    font-weight: 600;
+  }
+  .pd-mock-prefill-val {
+    margin: 0;
+    color: var(--pd-mock-fg);
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .pd-mock-prefill-empty {
+    margin: 0 0 16px;
+    color: var(--pd-mock-muted);
+    font-style: italic;
+  }
   .pd-mock-confirm-actions {
     display: flex;
     justify-content: flex-end;
@@ -622,6 +644,28 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     title.className = 'pd-mock-confirm-title';
     title.textContent = `Modal: ${attrs.type ?? ''}`;
     dialog.appendChild(title);
+
+    const entries = Object.entries(attrs.prefill ?? {});
+    if (entries.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'pd-mock-prefill-empty';
+      empty.textContent = '(no prefill)';
+      dialog.appendChild(empty);
+    } else {
+      const prefill = document.createElement('dl');
+      prefill.className = 'pd-mock-prefill';
+      for (const [key, value] of entries) {
+        const dt = document.createElement('dt');
+        dt.className = 'pd-mock-prefill-key';
+        dt.textContent = key;
+        const dd = document.createElement('dd');
+        dd.className = 'pd-mock-prefill-val';
+        dd.textContent =
+          typeof value === 'string' ? value : JSON.stringify(value);
+        prefill.append(dt, dd);
+      }
+      dialog.appendChild(prefill);
+    }
 
     const actions = document.createElement('div');
     actions.className = 'pd-mock-confirm-actions';

@@ -222,6 +222,23 @@ export default function MockHostPlayground({
           action_id: 'demo-modal',
         }),
     },
+    {
+      label: 'OPEN_MODAL activity (prefill)',
+      fn: (s) =>
+        s.execute(Command.OPEN_MODAL, {
+          type: Modal.ACTIVITY,
+          prefill: {
+            subject: 'Follow-up phone call',
+            dueDate: '2022-12-18',
+            dueTime: '13:00',
+            duration: '00:30',
+            note: 'Ask about <b>deal next steps</b>',
+            description: 'Discussion about deal specifics',
+            deal: 10,
+            organization: 2,
+          },
+        }),
+    },
     { label: 'CLOSE_MODAL', fn: (s) => s.execute(Command.CLOSE_MODAL) },
     {
       label: 'REDIRECT_TO deals',

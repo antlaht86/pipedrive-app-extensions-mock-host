@@ -57,6 +57,20 @@ The Surface type opened on demand over the page via `OPEN_MODAL` (type
 up to the browser size. A distinct location from the Custom Panel — opening one
 does not move the App Extension out of its panel.
 
+**Entity Modal**:
+A modal opened via `OPEN_MODAL` with a Pipedrive-native record type — `deal`,
+`person`, `organization`, or `activity` — that brings up Pipedrive's own
+create-record form. Distinct from a Custom Modal (which loads the App
+Extension's own page) and a JSON Modal. It is not a Surface: opening one does
+not move the App Extension out of its panel, and it returns `{ status, id }`.
+_Avoid_: native modal, form modal.
+
+**Prefill**:
+The optional values an Entity Modal carries to pre-populate the create-record
+form's fields (e.g. an activity's `subject`, `dueDate`, `deal`). Input only —
+the form's response never echoes the prefill back. Lets the App Extension open
+the form with sensible defaults instead of an empty form.
+
 **Floating Window**:
 The Surface type toggled via `SHOW_FLOATING_WINDOW` / `HIDE_FLOATING_WINDOW`; a
 small persistent window (e.g. for call controls), 70–700px tall and 200–800px
