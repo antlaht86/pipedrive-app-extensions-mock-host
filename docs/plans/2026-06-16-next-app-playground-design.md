@@ -76,4 +76,7 @@ dev tool. The README/page notes "run with `npm run dev`".
 3. Three route pages + `custom-modal.tsx` + index nav.
 4. Verify each page in the browser (MCP/playwright-cli): every control logs, the
    surface opens at its max size, custom modal loads `/custom-modal`.
+
+```
+
 ```
