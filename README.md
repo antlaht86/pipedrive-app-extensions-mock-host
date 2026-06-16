@@ -361,6 +361,12 @@ app can):
 - **Visibility** — emit `VISIBILITY` (`is_visible` + `invoker`).
 - **Page** — emit `PAGE_VISIBILITY_STATE` (`visible` / `hidden`).
 - **Resize** — resize the active surface, clamped to that surface's bounds.
+- **Focus mode** — disable the floating window's close button (shown only while a
+  floating window is the active surface).
+
+The controls are **surface-type aware**: the Focus mode control appears only when
+a Floating Window is active, and the Dev Tool tracks the DOM so it stays in sync
+as your framework mounts and unmounts the surface wrapper.
 
 The **Active Log** records activity, newest-first, each entry tagged with its
 direction: the Commands the App Extension sent (e.g.
@@ -384,8 +390,9 @@ const host = startPipedriveMockHost();
 host.devTool.setPosition('top-right'); // bottom-left | bottom-right | top-left | top-right
 ```
 
-> The focus-mode toggle and full surface-type awareness are still in progress —
-> see
+> A few refinements are still in progress (disabling Resize when no surface is
+> present, logging Dev-Tool-initiated resize/focus actions, a log show/hide
+> toggle) — see
 > [`docs/plans/2026-06-16-dev-tool-design.md`](./docs/plans/2026-06-16-dev-tool-design.md).
 
 ## Examples

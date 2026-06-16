@@ -226,6 +226,98 @@ test('collapsing the panel emits VISIBILITY to the app', () => {
   host.teardown();
 });
 
+test('the focus-mode control is shown when a floating window is active', () => {
+  const fw = document.createElement('div');
+  fw.className = 'pd-mock-floating-window';
+  document.body.appendChild(fw);
+
+  const host = startPipedriveMockHost();
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  const focus = tool?.querySelector<HTMLButtonElement>(
+    'button[aria-label="Toggle focus mode"]',
+  );
+
+  expect(
+    focus?.closest('.pd-mock-dev-tool-control')?.hasAttribute('hidden'),
+  ).toBe(false);
+
+  fw.remove();
+  host.teardown();
+});
+
+test('the focus-mode control is hidden when the surface is a panel', () => {
+  const panel = document.createElement('div');
+  panel.className = 'pd-mock-panel';
+  document.body.appendChild(panel);
+
+  const host = startPipedriveMockHost();
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  const focus = tool?.querySelector<HTMLButtonElement>(
+    'button[aria-label="Toggle focus mode"]',
+  );
+
+  expect(
+    focus?.closest('.pd-mock-dev-tool-control')?.hasAttribute('hidden'),
+  ).toBe(true);
+
+  panel.remove();
+  host.teardown();
+});
+
+test('the focus toggle disables the floating window close button', () => {
+  const fw = document.createElement('div');
+  fw.className = 'pd-mock-floating-window';
+  document.body.appendChild(fw);
+
+  const host = startPipedriveMockHost();
+  // Decorate the floating window so it carries a header close button.
+  window.dispatchEvent(
+    new MessageEvent('message', {
+      data: { payload: { type: 'command', command: 'initialize' } },
+    }),
+  );
+
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  tool
+    ?.querySelector<HTMLButtonElement>('button[aria-label="Toggle focus mode"]')
+    ?.click();
+
+  const close = fw.querySelector<HTMLButtonElement>('.pd-mock-surface-close');
+  expect(close?.disabled).toBe(true);
+
+  fw.remove();
+  host.teardown();
+});
+
+test('adding a floating window reveals the focus control reactively', async () => {
+  const host = startPipedriveMockHost();
+
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  const focusRow = tool
+    ?.querySelector<HTMLButtonElement>('button[aria-label="Toggle focus mode"]')
+    ?.closest('.pd-mock-dev-tool-control');
+
+  expect(focusRow?.hasAttribute('hidden')).toBe(true);
+
+  const fw = document.createElement('div');
+  fw.className = 'pd-mock-floating-window';
+  document.body.appendChild(fw);
+  await new Promise((resolve) => setTimeout(resolve, 0)); // let the observer fire
+
+  expect(focusRow?.hasAttribute('hidden')).toBe(false);
+
+  fw.remove();
+  host.teardown();
+});
+
 test('the dev tool can be collapsed and expanded via its toggle', () => {
   const host = startPipedriveMockHost();
 

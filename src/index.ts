@@ -807,6 +807,10 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // no-ops when there is no log to write to.
   let devToolElement: HTMLElement | null = null;
   let devToolLog: HTMLElement | null = null;
+  // The focus-mode control row (shown only for a floating window) and the
+  // observer that keeps surface-dependent controls in sync with the DOM.
+  let devToolFocusRow: HTMLElement | null = null;
+  let devToolObserver: MutationObserver | null = null;
   const logToDevTool = (
     direction: string,
     kind: string,
@@ -1009,6 +1013,29 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     });
     resizeRow.append(resizeLabel, widthInput, heightInput, resizeApply);
     controls.appendChild(resizeRow);
+
+    // Focus mode — floating-window only, so this row is hidden for other
+    // surfaces (toggled by refreshDevToolSurface below).
+    const focusRow = document.createElement('div');
+    focusRow.className = 'pd-mock-dev-tool-control';
+    focusRow.hidden = true;
+    const focusLabel = document.createElement('span');
+    focusLabel.className = 'pd-mock-dev-tool-control-label';
+    focusLabel.textContent = 'Focus mode';
+    const focusToggle = document.createElement('button');
+    focusToggle.type = 'button';
+    focusToggle.setAttribute('aria-label', 'Toggle focus mode');
+    focusToggle.setAttribute('aria-pressed', 'false');
+    focusToggle.textContent = 'Off';
+    focusToggle.addEventListener('click', () => {
+      const on = focusToggle.getAttribute('aria-pressed') !== 'true';
+      focusToggle.setAttribute('aria-pressed', String(on));
+      focusToggle.textContent = on ? 'On' : 'Off';
+      applyFocusMode(on);
+    });
+    focusRow.append(focusLabel, focusToggle);
+    controls.appendChild(focusRow);
+    devToolFocusRow = focusRow;
 
     const log = document.createElement('ul');
     log.className = 'pd-mock-dev-tool-log';
@@ -1483,6 +1510,28 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     return true;
   };
 
+  // Focus mode keeps the user from closing the floating window: its header close
+  // button is disabled while on, and a "Focus mode" indicator shows (ADR-0008).
+  // Shared by the SET_FOCUS_MODE command and the Dev Tool's focus toggle.
+  const applyFocusMode = (enabled: boolean): void => {
+    const closeBtn = resolveSurface().querySelector<HTMLButtonElement>(
+      '.pd-mock-surface-close',
+    );
+    if (closeBtn) {
+      closeBtn.disabled = enabled;
+    }
+    const chrome = ensureChrome();
+    const existing = chrome.querySelector('.pd-mock-focus');
+    if (enabled && !existing) {
+      const indicator = document.createElement('div');
+      indicator.className = 'pd-mock-indicator pd-mock-focus';
+      indicator.textContent = 'Focus mode';
+      chrome.appendChild(indicator);
+    } else if (!enabled && existing) {
+      existing.remove();
+    }
+  };
+
   // Guard for commands that only apply to a floating window (SHOW/HIDE_FLOATING
   // _WINDOW, SET_NOTIFICATION, SET_FOCUS_MODE — Pipedrive UI rules, not in the
   // SDK). Logs a diagnostic and returns false when the active surface is not a
@@ -1696,25 +1745,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
           reply();
           break;
         }
-        const enabled = payload.args === true;
-        // Focus mode keeps the user from closing the floating window: its header
-        // close button is disabled while focus mode is on (ADR-0008).
-        const closeBtn = resolveSurface().querySelector<HTMLButtonElement>(
-          '.pd-mock-surface-close',
-        );
-        if (closeBtn) {
-          closeBtn.disabled = enabled;
-        }
-        const chrome = ensureChrome();
-        const existing = chrome.querySelector('.pd-mock-focus');
-        if (enabled && !existing) {
-          const el = document.createElement('div');
-          el.className = 'pd-mock-indicator pd-mock-focus';
-          el.textContent = 'Focus mode';
-          chrome.appendChild(el);
-        } else if (!enabled && existing) {
-          existing.remove();
-        }
+        applyFocusMode(payload.args === true);
         reply();
         break;
       }
@@ -1735,6 +1766,27 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     }
   };
 
+  // Keep surface-dependent Dev Tool controls in sync with the active surface:
+  // the focus-mode row shows only for a floating window. resolveSurface() is not
+  // reactive and frameworks mount/unmount the wrapper, so watch the DOM (class/id
+  // toggles included) and recompute. Cheap: one querySelector per mutation.
+  if (devToolElement) {
+    const refreshDevToolSurface = (): void => {
+      if (devToolFocusRow) {
+        devToolFocusRow.hidden =
+          surfaceTypeOf(resolveSurface()) !== 'pd-mock-floating-window';
+      }
+    };
+    refreshDevToolSurface();
+    devToolObserver = new MutationObserver(refreshDevToolSurface);
+    devToolObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'id'],
+    });
+  }
+
   window.addEventListener('message', onMessage);
 
   const handle: MockHost = {
@@ -1752,6 +1804,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     },
     teardown() {
       window.removeEventListener('message', onMessage);
+      devToolObserver?.disconnect();
       hostEl.remove();
       surfaceStyleEl.remove();
       listeners.clear();
