@@ -324,6 +324,110 @@ test('GET_METADATA returns the panel surface dimensions', async () => {
   expect(meta).toEqual({ windowWidth: 385, windowHeight: 300 });
 });
 
+// Surface header chrome (see ADR-0006 amendment).
+
+test('a panel surface gets a host header showing the app name', async () => {
+  host = startPipedriveMockHost();
+  const panel = renderPanel();
+  await createSdk();
+
+  expect(within(panel).getByText('App Extension')).toBeVisible();
+});
+
+test('the surface header shows config.appName when provided', async () => {
+  host = startPipedriveMockHost({ appName: 'OneClick Staging' });
+  const panel = renderPanel();
+  await createSdk();
+
+  expect(within(panel).getByText('OneClick Staging')).toBeVisible();
+});
+
+test('the panel header shows the app icon glyph from config.appIcon', async () => {
+  host = startPipedriveMockHost({ appIcon: '◆' });
+  const panel = renderPanel();
+  await createSdk();
+
+  expect(within(panel).getByText('◆')).toBeVisible();
+});
+
+test('the panel header collapse button hides the surface content', async () => {
+  host = startPipedriveMockHost();
+  const panel = renderPanel();
+  const body = document.createElement('p');
+  body.textContent = 'panel body';
+  panel.appendChild(body);
+  await createSdk();
+
+  await userEvent.click(
+    within(panel).getByRole('button', { name: /collapse/i }),
+  );
+
+  expect(body).not.toBeVisible();
+});
+
+test('the panel header has a refresh and a more (⋯) button', async () => {
+  host = startPipedriveMockHost();
+  const panel = renderPanel();
+  await createSdk();
+
+  const ui = within(panel);
+  expect(ui.getByRole('button', { name: /refresh/i })).toBeVisible();
+  expect(ui.getByRole('button', { name: /more/i })).toBeVisible();
+});
+
+test('the floating window header X closes it and emits a user VISIBILITY event', async () => {
+  host = startPipedriveMockHost();
+  const fw = renderSurface('pd-mock-floating-window');
+  const sdk = await createSdk();
+  const events: Array<unknown> = [];
+  sdk.listen(Event.VISIBILITY, (r) => events.push(r.data));
+  await tick();
+
+  await userEvent.click(within(fw).getByRole('button', { name: 'Close' }));
+
+  expect(fw).not.toBeVisible();
+  await vi.waitFor(() =>
+    expect(events).toEqual([
+      { is_visible: false, context: { invoker: 'user' } },
+    ]),
+  );
+});
+
+test('focus mode disables the floating window close button', async () => {
+  host = startPipedriveMockHost();
+  const fw = renderSurface('pd-mock-floating-window');
+  const sdk = await createSdk();
+  const close = within(fw).getByRole('button', { name: 'Close' });
+
+  await sdk.execute(Command.SET_FOCUS_MODE, true);
+  expect(close).toBeDisabled();
+
+  await sdk.execute(Command.SET_FOCUS_MODE, false);
+  expect(close).toBeEnabled();
+});
+
+test('the modal wrapper header X emits CLOSE_CUSTOM_MODAL and hides it', async () => {
+  host = startPipedriveMockHost();
+  const modal = renderSurface('pd-mock-modal');
+  const sdk = await createSdk();
+  const closed: Array<{ data?: unknown }> = [];
+  sdk.listen(Event.CLOSE_CUSTOM_MODAL, (r) => closed.push(r));
+  await tick();
+
+  await userEvent.click(within(modal).getByRole('button', { name: 'Close' }));
+
+  expect(modal).not.toBeVisible();
+  await vi.waitFor(() => expect(closed).toHaveLength(1));
+});
+
+test('an id-identified surface gets no host header (chrome is class-only)', async () => {
+  host = startPipedriveMockHost();
+  const byId = renderSurfaceById('pd-mock-panel');
+  await createSdk();
+
+  expect(byId.querySelector('.pd-mock-surface-header')).toBeNull();
+});
+
 // Surface identified by id (no host styles) — same behaviour as a class.
 
 test('a surface identified by id is recognized for RESIZE bounds', async () => {
@@ -847,6 +951,25 @@ test('OPEN_MODAL custom_modal renders an iframe to the configured URL', async ()
       'https://example.com/modals/settings',
     );
   });
+});
+
+test('the custom modal dialog shows a header with the app name and a Close X', async () => {
+  host = startPipedriveMockHost({
+    appName: 'Settings',
+    customModals: { x: 'https://example.com/x' },
+  });
+  const sdk = await createSdk();
+
+  void sdk.execute(Command.OPEN_MODAL, {
+    type: 'custom_modal',
+    action_id: 'x',
+  });
+
+  const dialog = await within(
+    host.shadowRoot as unknown as HTMLElement,
+  ).findByRole('dialog');
+  expect(within(dialog).getByText('Settings')).toBeVisible();
+  expect(within(dialog).getByRole('button', { name: 'Close' })).toBeVisible();
 });
 
 test('closing a custom_modal fires CLOSE_CUSTOM_MODAL', async () => {

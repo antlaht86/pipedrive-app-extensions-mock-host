@@ -66,6 +66,16 @@ export interface MockHostConfig {
   customModals?:
     | Record<string, string>
     | ((attrs: ModalArgs) => string | undefined);
+  /**
+   * Name shown in the surface header bar the host injects onto each surface
+   * (panel/modal/floating window). Defaults to `'App Extension'`.
+   */
+  appName?: string;
+  /**
+   * Icon shown in the surface header bar — a URL (rendered as an `<img>`) or a
+   * short glyph/emoji (rendered as text). Defaults to a generic mock glyph.
+   */
+  appIcon?: string;
 }
 
 /** A single command the App Extension sent, captured for inspection in tests. */
@@ -244,7 +254,7 @@ const SURFACE_STYLES = `
     overflow: auto;
     background: #fff;
     border: 1px solid #e3e6ea;
-    border-radius: 8px;
+    border-radius: 3px;
     box-shadow: 0 1px 3px rgba(20, 24, 31, 0.08);
   }
   .pd-mock-modal {
@@ -257,7 +267,7 @@ const SURFACE_STYLES = `
     height: 400px;
     overflow: auto;
     background: #fff;
-    border-radius: 12px;
+    border-radius: 4px;
     box-shadow:
       0 0 0 100vmax rgba(20, 24, 31, 0.35),
       0 16px 48px rgba(20, 24, 31, 0.3);
@@ -273,9 +283,110 @@ const SURFACE_STYLES = `
     overflow: auto;
     background: #fff;
     border: 1px solid #e3e6ea;
-    border-radius: 10px;
+    border-radius: 4px;
     box-shadow: 0 8px 28px rgba(20, 24, 31, 0.22);
     z-index: 2147483640;
+  }
+  .pd-mock-collapsed > :not(.pd-mock-surface-header) {
+    display: none !important;
+  }
+  .pd-mock-collapsed {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  /* Host-injected surface chrome — a title bar pinned to the top of the surface,
+     mirroring the frame Pipedrive renders around the app's iframe. */
+  .pd-mock-surface-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 6px 0 12px;
+    background: #fbfcfd;
+    border-bottom: 1px solid #e8ebef;
+    border-radius: inherit;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    font: 13px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #20242b;
+    user-select: none;
+  }
+  .pd-mock-surface-icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    line-height: 1;
+    border-radius: 5px;
+    overflow: hidden;
+    object-fit: cover;
+  }
+  .pd-mock-surface-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pd-mock-surface-btn {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    font: inherit;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .pd-mock-surface-btn::before {
+    font-size: 15px;
+    line-height: 1;
+  }
+  .pd-mock-surface-btn:hover {
+    background: #eef0f3;
+    color: #20242b;
+  }
+  .pd-mock-surface-btn:disabled {
+    color: #c4cad2;
+    background: transparent;
+    cursor: not-allowed;
+  }
+  /* A single CSS-drawn chevron so the open/closed states are the SAME shape,
+     just rotated 180° (a thin caret glyph differs subtly between ⌃ and ⌄). */
+  .pd-mock-surface-collapse::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-top: 1.75px solid currentColor;
+    border-left: 1.75px solid currentColor;
+    transform: translateY(1.5px) rotate(45deg);
+    transition: transform 0.18s ease;
+  }
+  .pd-mock-collapsed > .pd-mock-surface-header .pd-mock-surface-collapse::before {
+    transform: translateY(-1.5px) rotate(225deg);
+  }
+  .pd-mock-surface-refresh::before {
+    content: '\\27F3';
+    font-size: 20px;
+  }
+  .pd-mock-surface-more::before {
+    content: '\\22EF';
+    font-size: 18px;
+  }
+  .pd-mock-surface-close::before {
+    content: '\\2715';
   }
 `;
 
@@ -295,7 +406,7 @@ const CONFIRMATION_STYLES = `
     width: min(90vw, 360px);
     background: var(--pd-mock-surface-bg);
     color: var(--pd-mock-fg);
-    border-radius: 12px;
+    border-radius: 4px;
     padding: 20px;
     box-shadow: 0 12px 40px rgba(20, 24, 31, 0.28);
     font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -339,6 +450,47 @@ const CONFIRMATION_STYLES = `
   }
   .pd-mock-confirm--custom {
     width: min(92vw, 560px);
+  }
+  .pd-mock-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -20px -20px 16px;
+    padding: 11px 10px 11px 20px;
+    border-bottom: 1px solid var(--pd-mock-border);
+  }
+  .pd-mock-modal-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pd-mock-modal-close {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--pd-mock-muted);
+    cursor: pointer;
+    font: inherit;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .pd-mock-modal-close::before {
+    content: '\\2715';
+    font-size: 16px;
+    line-height: 1;
+  }
+  .pd-mock-modal-close:hover {
+    background: rgba(20, 24, 31, 0.07);
+    color: var(--pd-mock-fg);
   }
   .pd-mock-custom-frame {
     display: block;
@@ -641,6 +793,26 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     resolve?.(result);
   };
 
+  // The title bar Pipedrive frames a shadow-DOM modal dialog with: a title and a
+  // close (X) button. Shared by the custom modal dialog.
+  const buildModalHeader = (
+    title: string,
+    onClose: () => void,
+  ): HTMLElement => {
+    const header = document.createElement('div');
+    header.className = 'pd-mock-modal-header';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'pd-mock-modal-title';
+    titleEl.textContent = title;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'pd-mock-modal-close';
+    close.setAttribute('aria-label', 'Close');
+    close.addEventListener('click', onClose);
+    header.append(titleEl, close);
+    return header;
+  };
+
   const openEntityModal = (
     attrs: ModalArgs,
     onResolve: (result: ModalResult) => void,
@@ -729,6 +901,15 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     dialog.className = 'pd-mock-confirm pd-mock-confirm--custom';
     dialog.setAttribute('role', 'dialog');
 
+    // Pipedrive frames a custom modal with a title bar and a close (X) button;
+    // the X dismisses it, firing CLOSE_CUSTOM_MODAL just like the command does.
+    dialog.appendChild(
+      buildModalHeader(appName, () => {
+        emitEvent(EVENT_CLOSE_CUSTOM_MODAL, undefined);
+        closeModal({ status: 'closed' });
+      }),
+    );
+
     const url = resolveCustomModalUrl(attrs);
     if (url) {
       const iframe = document.createElement('iframe');
@@ -741,19 +922,6 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
       placeholder.textContent = `custom_modal: ${attrs.action_id ?? ''} (no URL configured)`;
       dialog.appendChild(placeholder);
     }
-
-    const actions = document.createElement('div');
-    actions.className = 'pd-mock-confirm-actions';
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'pd-mock-confirm-btn';
-    closeBtn.textContent = 'Close';
-    closeBtn.addEventListener('click', () => {
-      emitEvent(EVENT_CLOSE_CUSTOM_MODAL, undefined);
-      closeModal({ status: 'closed' });
-    });
-    actions.appendChild(closeBtn);
-    dialog.appendChild(actions);
 
     backdrop.appendChild(dialog);
     shadowRoot.appendChild(backdrop);
@@ -780,6 +948,116 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // fall back to the document body (config.surface override is a later slice).
   const resolveSurface = (): HTMLElement =>
     document.querySelector<HTMLElement>(SURFACE_SELECTOR) ?? document.body;
+
+  // The app's display name/icon shown in the surface header bar.
+  const appName = config.appName ?? 'App Extension';
+  const appIcon = config.appIcon ?? '◧';
+
+  // Render the app icon as an <img> when it looks like a URL, otherwise as a
+  // glyph/emoji. Returns null when no icon should be shown.
+  const buildAppIcon = (): HTMLElement => {
+    const isUrl = /^(https?:|data:|\/)/.test(appIcon);
+    if (isUrl) {
+      const img = document.createElement('img');
+      img.className = 'pd-mock-surface-icon';
+      img.src = appIcon;
+      img.alt = '';
+      return img;
+    }
+    const span = document.createElement('span');
+    span.className = 'pd-mock-surface-icon';
+    span.textContent = appIcon;
+    return span;
+  };
+
+  // Build the host-injected header bar for a surface type. Pipedrive renders
+  // this chrome outside the app's iframe in production; here it lives in the
+  // surface's light DOM as the wrapper's first child (the consumer's content
+  // flows below it).
+  const buildSurfaceHeader = (el: HTMLElement, type: string): HTMLElement => {
+    const header = document.createElement('div');
+    header.className = 'pd-mock-surface-header';
+
+    if (type === 'pd-mock-panel') {
+      const collapse = document.createElement('button');
+      collapse.type = 'button';
+      collapse.className = 'pd-mock-surface-btn pd-mock-surface-collapse';
+      collapse.setAttribute('aria-label', 'Collapse');
+      collapse.addEventListener('click', () => {
+        const collapsed = el.classList.toggle('pd-mock-collapsed');
+        collapse.setAttribute('aria-label', collapsed ? 'Expand' : 'Collapse');
+      });
+      header.appendChild(collapse);
+    }
+
+    // Panel and floating window show the app icon next to the name; the modal
+    // shows just the title (matching Pipedrive's chrome).
+    if (type !== 'pd-mock-modal') {
+      header.appendChild(buildAppIcon());
+    }
+
+    const title = document.createElement('span');
+    title.className = 'pd-mock-surface-title';
+    title.textContent = appName;
+    header.appendChild(title);
+
+    if (type === 'pd-mock-panel') {
+      // Refresh reloads the page (Pipedrive reloads the app's iframe; the mock
+      // shares the page, so it reloads the whole window). "More" is inert — there
+      // is no menu — it exists so the panel chrome matches Pipedrive's.
+      const refresh = document.createElement('button');
+      refresh.type = 'button';
+      refresh.className = 'pd-mock-surface-btn pd-mock-surface-refresh';
+      refresh.setAttribute('aria-label', 'Refresh');
+      refresh.addEventListener('click', () => window.location.reload());
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'pd-mock-surface-btn pd-mock-surface-more';
+      more.setAttribute('aria-label', 'More');
+      header.append(refresh, more);
+    }
+
+    // Floating windows and modals carry an X. Closing a floating window fires a
+    // user-invoked VISIBILITY; closing a (custom) modal fires CLOSE_CUSTOM_MODAL.
+    const onClose =
+      type === 'pd-mock-floating-window'
+        ? (): void => {
+            el.style.display = 'none';
+            emitEvent(EVENT_VISIBILITY, {
+              is_visible: false,
+              context: { invoker: 'user' },
+            });
+          }
+        : type === 'pd-mock-modal'
+          ? (): void => {
+              el.style.display = 'none';
+              emitEvent(EVENT_CLOSE_CUSTOM_MODAL, undefined);
+            }
+          : undefined;
+    if (onClose) {
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'pd-mock-surface-btn pd-mock-surface-close';
+      close.setAttribute('aria-label', 'Close');
+      close.addEventListener('click', onClose);
+      header.appendChild(close);
+    }
+    return header;
+  };
+
+  // Inject the header bar into every class-identified surface present. Idempotent
+  // (one header per surface). The id form deliberately gets no header — like the
+  // host styles, it is class-only (ADR-0006: id = behaviour without styling).
+  const decorateSurfaces = (): void => {
+    for (const type of Object.keys(SURFACE_BOUNDS)) {
+      for (const el of document.querySelectorAll<HTMLElement>(`.${type}`)) {
+        if (el.querySelector(':scope > .pd-mock-surface-header')) {
+          continue;
+        }
+        el.insertBefore(buildSurfaceHeader(el, type), el.firstChild);
+      }
+    }
+  };
 
   // Apply a size to the current surface. Each requested dimension must fall
   // within the surface type's bounds; if any is out of range the whole resize
@@ -907,6 +1185,7 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         const args = payload.args as
           | { size?: { width?: number; height?: number } }
           | undefined;
+        decorateSurfaces();
         applySize(args?.size, 'initialize');
         reply();
         break;
@@ -1051,6 +1330,14 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
           break;
         }
         const enabled = payload.args === true;
+        // Focus mode keeps the user from closing the floating window: its header
+        // close button is disabled while focus mode is on (ADR-0008).
+        const closeBtn = resolveSurface().querySelector<HTMLButtonElement>(
+          '.pd-mock-surface-close',
+        );
+        if (closeBtn) {
+          closeBtn.disabled = enabled;
+        }
         const chrome = ensureChrome();
         const existing = chrome.querySelector('.pd-mock-focus');
         if (enabled && !existing) {
