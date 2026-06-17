@@ -1,5 +1,11 @@
 # pipedrive-app-extensions-mock-host
 
+## 0.3.0
+
+### Minor Changes
+
+- Fix the Dev Tool "Page" control (and `emit(PAGE_VISIBILITY_STATE)`), which was a no-op: the host now dispatches a real document `visibilitychange` so the app's `PAGE_VISIBILITY_STATE` listener fires.
+
 ## 0.2.2
 
 ### Patch Changes
