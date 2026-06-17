@@ -313,15 +313,20 @@ test('RESIZE ignores a panel width without erroring; height still applies', asyn
   expect(errors).toHaveLength(0);
 });
 
-test('GET_METADATA returns the panel surface dimensions', async () => {
+test('GET_METADATA returns the hosting window (viewport), not the surface size', async () => {
   host = startPipedriveMockHost();
   renderPanel();
   const sdk = await createSdk();
+  // Resize the surface — GET_METADATA must still report the hosting window, not
+  // the panel's own 385×300 (apps size a surface relative to the window).
   await sdk.execute(Command.RESIZE, { height: 300 });
 
   const meta = await sdk.execute(Command.GET_METADATA);
 
-  expect(meta).toEqual({ windowWidth: 385, windowHeight: 300 });
+  expect(meta).toEqual({
+    windowWidth: Math.round(window.innerWidth),
+    windowHeight: Math.round(window.innerHeight),
+  });
 });
 
 // Surface header chrome (see ADR-0006 amendment).
@@ -729,27 +734,23 @@ test('SHOW_FLOATING_WINDOW on a non-floating-window surface errors and emits not
   expect(visibility).toHaveLength(0);
 });
 
-test('GET_METADATA returns the modal surface dimensions', async () => {
+test('RESIZE applies a valid modal size to the surface', async () => {
   host = startPipedriveMockHost();
-  renderSurface('pd-mock-modal');
+  const modal = renderSurface('pd-mock-modal');
   const sdk = await createSdk();
   // Use the modal minimum, always within the test viewport.
   await sdk.execute(Command.RESIZE, { width: 320, height: 120 });
 
-  const meta = await sdk.execute(Command.GET_METADATA);
-
-  expect(meta).toEqual({ windowWidth: 320, windowHeight: 120 });
+  expect([modal.offsetWidth, modal.offsetHeight]).toEqual([320, 120]);
 });
 
-test('GET_METADATA returns the floating window dimensions', async () => {
+test('RESIZE applies a valid floating window size to the surface', async () => {
   host = startPipedriveMockHost();
-  renderSurface('pd-mock-floating-window');
+  const fw = renderSurface('pd-mock-floating-window');
   const sdk = await createSdk();
   await sdk.execute(Command.RESIZE, { width: 400, height: 300 });
 
-  const meta = await sdk.execute(Command.GET_METADATA);
-
-  expect(meta).toEqual({ windowWidth: 400, windowHeight: 300 });
+  expect([fw.offsetWidth, fw.offsetHeight]).toEqual([400, 300]);
 });
 
 // Events: the host pushes to listeners via emit (see ADR-0001 / design plan).

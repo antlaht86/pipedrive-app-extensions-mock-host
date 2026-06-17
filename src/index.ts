@@ -1882,10 +1882,13 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         break;
       }
       case COMMAND_GET_METADATA: {
-        const surface = resolveSurface();
+        // Metadata.windowWidth/windowHeight are the HOSTING WINDOW dimensions,
+        // not the surface's own size (the field names, and the common pattern of
+        // sizing a modal at `windowHeight * fraction`, make that clear). In dev
+        // the hosting window is the browser viewport.
         reply({
-          windowWidth: surface.offsetWidth,
-          windowHeight: surface.offsetHeight,
+          windowWidth: Math.round(window.innerWidth),
+          windowHeight: Math.round(window.innerHeight),
         });
         break;
       }

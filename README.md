@@ -248,7 +248,7 @@ Pipedrive would. Reply shapes match the SDK's own types.
 | `SET_FOCUS_MODE`                                | Toggles focus mode, disabling the floating window's close button. **Floating-window only.**                                                                                     |
 | `SHOW_FLOATING_WINDOW` / `HIDE_FLOATING_WINDOW` | Shows / hides the floating-window surface. **Floating-window only.**                                                                                                            |
 | `RESIZE`                                        | Resizes the active surface, clamped to that surface type's bounds (out-of-range requests are rejected).                                                                         |
-| `GET_METADATA`                                  | Returns the surface's current `{ windowWidth, windowHeight }`.                                                                                                                  |
+| `GET_METADATA`                                  | Returns the **hosting window**'s `{ windowWidth, windowHeight }` (the dev browser viewport) — not the surface's own size — so apps can size a surface relative to it.           |
 | `GET_SIGNED_TOKEN`                              | Returns `{ token }` from `getSignedToken` (default `'dev-signed-token'`).                                                                                                       |
 
 Surface-scoped commands run on the wrong surface log a dev-only diagnostic and
@@ -283,7 +283,8 @@ await sdk.execute(Command.OPEN_MODAL, {
   action_id: 'settings-modal',
 });
 
-// Resize the active surface, then read its measured size back.
+// Resize the active surface, then read the hosting window's size (e.g. to size
+// a modal relative to it). GET_METADATA reports the window, not the surface.
 await sdk.execute(Command.RESIZE, { height: 600 });
 const { windowWidth, windowHeight } = await sdk.execute(Command.GET_METADATA);
 
@@ -296,8 +297,9 @@ const { token } = await sdk.execute(Command.GET_SIGNED_TOKEN);
 ## Surfaces
 
 A **Surface** is the element standing in for the place in Pipedrive where your
-App Extension renders. `RESIZE` sizes it and `GET_METADATA` measures it. You opt
-in by wrapping your app in an element with the host's class (or `id`):
+App Extension renders. `RESIZE` sizes it. (`GET_METADATA` reports the **hosting
+window**, not the surface — see [Supported commands](#supported-commands).) You
+opt in by wrapping your app in an element with the host's class (or `id`):
 
 | Surface         | Wrapper class / id        | Width            | Height           |
 | --------------- | ------------------------- | ---------------- | ---------------- |
@@ -391,11 +393,12 @@ See [ADR-0010](./docs/adr/0010-scroll-layer-for-pinned-surface-content.md).
 ### Which element becomes the active surface
 
 The host picks the **first** element (in DOM order) matching any surface class or
-id, and treats that as the surface `RESIZE` sizes and `GET_METADATA` measures:
+id, and treats that as the surface `RESIZE` sizes:
 
-- **No wrapper present?** The host falls back to `document.body`. `RESIZE` and
-  `GET_METADATA` still work — they just act on the body. (You won't get a
-  surface header bar, since there is no wrapper to inject it into.)
+- **No wrapper present?** The host falls back to `document.body`, so `RESIZE`
+  still works (it acts on the body). `GET_METADATA` is unaffected — it always
+  reports the hosting window. (You won't get a surface header bar, since there is
+  no wrapper to inject it into.)
 - **More than one wrapper?** The first in DOM order wins; the rest are ignored.
   Render only one surface wrapper at a time.
 

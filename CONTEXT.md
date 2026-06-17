@@ -40,10 +40,19 @@ _Avoid_: analytics, log event.
 
 **Surface**:
 The element that stands in for the place in Pipedrive where the App Extension
-renders. `RESIZE` sizes it and `GET_METADATA` measures it. A Surface has a
-concrete **type** — Custom Panel, Custom Modal, or Floating Window — each a
-different location with its own size rules and behaviour.
+renders. `RESIZE` sizes it. A Surface has a concrete **type** — Custom Panel,
+Custom Modal, or Floating Window — each a different location with its own size
+rules and behaviour. `GET_METADATA` does **not** measure the Surface; it reports
+the **Hosting Window** (see below).
 _Avoid_: container, wrapper (use Surface or a specific type).
+
+**Hosting Window**:
+The window the App Extension is embedded in — in production the Pipedrive page
+window, in development the browser viewport. `GET_METADATA` reports its
+dimensions (`windowWidth` / `windowHeight`), which apps use to size a Surface
+relative to it (e.g. a modal at `windowHeight * 0.9`).
+_Avoid_: screen (that is the physical monitor, which is larger and not what
+`GET_METADATA` reports).
 
 **Custom Panel**:
 The Surface type that lives in the left sidebar of a deal/person/organization
