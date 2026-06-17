@@ -1,5 +1,11 @@
 # pipedrive-app-extensions-mock-host
 
+## 0.2.2
+
+### Patch Changes
+
+- The Dev Tool now collapses/expands when you click anywhere on its header bar, not just the small +/− button
+
 ## 0.2.1
 
 ### Patch Changes
