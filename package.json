@@ -1,6 +1,6 @@
 {
   "name": "pipedrive-app-extensions-mock-host",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Development-only mock host for the Pipedrive App Extensions SDK: lets your app extension's code run on localhost — talking to the real @pipedrive/app-extensions-sdk — by playing the Pipedrive window and rendering real UI elements. Framework-agnostic.",
   "keywords": [
     "pipedrive",
