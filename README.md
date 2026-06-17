@@ -307,7 +307,9 @@ in by wrapping your app in an element with the host's class (or `id`):
 
 ```html
 <div class="pd-mock-panel">
-  <!-- your App Extension renders here -->
+  <div class="pd-mock-scroll-layer">
+    <!-- your App Extension renders here -->
+  </div>
 </div>
 ```
 
@@ -316,10 +318,21 @@ The same wrapper in React (or any framework):
 ```tsx
 export function App() {
   return (
-    <div className="pd-mock-panel">{/* your App Extension renders here */}</div>
+    <div className="pd-mock-panel">
+      <div className="pd-mock-scroll-layer">
+        {/* your App Extension renders here */}
+      </div>
+    </div>
   );
 }
 ```
+
+The inner `.pd-mock-scroll-layer` makes the surface behave like Pipedrive's
+production frame: a `position: fixed` footer pins to the surface and there is a
+single scrollbar (see
+[Pinned footers and scrolling](#pinned-footers-and-scrolling-the-scroll-layer)).
+You **can omit it** — `<div class="pd-mock-panel">…</div>` on its own works too,
+and the surface simply scrolls itself.
 
 - You **don't write CSS** for surfaces — the class is enough; the host injects
   the styling and positioning.
@@ -346,8 +359,9 @@ export function App() {
 
 In production each surface is a real `<iframe>` inside an `overflow: hidden`
 wrapper, so a `position: fixed; bottom: 0` footer pins to the surface bottom
-while the app scrolls. The host renders surfaces as plain `<div>`s (no iframe), so
-to reproduce that, wrap your content in a **scroll layer**:
+while the app scrolls. The host renders surfaces as plain `<div>`s (no iframe);
+the `.pd-mock-scroll-layer` from the standard example above stands in for that
+iframe. Put your pinned footer inside it:
 
 ```html
 <div class="pd-mock-panel">
