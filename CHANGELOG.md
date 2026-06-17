@@ -1,5 +1,11 @@
 # pipedrive-app-extensions-mock-host
 
+## 0.3.1
+
+### Patch Changes
+
+- Dock the Custom Modal surface to the top of the viewport (like Pipedrive) instead of vertically centring it.
+
 ## 0.3.0
 
 ### Minor Changes

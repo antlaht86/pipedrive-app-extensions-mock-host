@@ -80,8 +80,9 @@ behaviour; the gate is chosen as the safer default, not for back-compat.)
   overflow: auto`) is surface-agnostic.
 - Applies to all three div surfaces (panel, modal, floating window). The panel
   and floating window get `transform: translateZ(0)` to establish the containing
-  block; the modal already has `transform: translate(-50%, -50%)` for centring,
-  so it is **not** given another transform (that would break its centring). All
+  block; the modal already has `transform: translateX(-50%)` (it docks to the
+  top-centre), so it is **not** given another transform (that would break its
+  positioning). All
   three match production's "flex-column frame + non-shrinking header + scrolling
   content" shape: the panel's `.AppExtensionsBlocks_iframeWrapper`, the modal's
   `.cui5-modal__wrap` → `.cui5-modal__header` (`flex-shrink: 0`) →

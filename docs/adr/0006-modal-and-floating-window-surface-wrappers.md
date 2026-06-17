@@ -35,7 +35,8 @@ viewport (`window.innerWidth`/`innerHeight`).
 The wrappers position themselves to match the real surface, rather than sitting
 inline like the panel:
 
-- **Custom Modal** — `position: fixed`, centred, with a dimmed backdrop.
+- **Custom Modal** — `position: fixed`, docked to the top-centre (its top edge
+  meets the viewport top, like Pipedrive), with a dimmed backdrop.
 - **Floating Window** — `position: fixed`, anchored to a corner.
 
 The consumer can place the `<div>` anywhere in their markup; the injected styles
@@ -45,8 +46,7 @@ move it to the right place.
 
 - **Modal backdrop** is done with a single class, no extra element: the modal
   element gets `box-shadow: 0 0 0 100vmax rgba(20, 24, 31, 0.35)`, which paints a
-  dimmed full-viewport spread behind the centred dialog. Keeps it purely
-  class-based.
+  dimmed full-viewport spread behind the dialog. Keeps it purely class-based.
 - **Default sizes** (before any `RESIZE`, within bounds): Custom Panel 385×100
   (unchanged), Custom Modal 520×400, Floating Window 320×240.
 - **Floating Window corner**: top-right, `2rem` from the top and right edges.

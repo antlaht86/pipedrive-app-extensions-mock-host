@@ -56,8 +56,9 @@ const SURFACES: Record<
   },
   modal: {
     className: 'pd-mock-modal',
-    // A centred dialog — kept to a readable size so the controls stay visible
-    // to its left rather than being buried under a viewport-filling overlay.
+    // A top-centred dialog — kept to a readable size so the controls stay
+    // visible to its left rather than being buried under a viewport-filling
+    // overlay.
     size: { width: MODAL_W, height: MODAL_H },
     label: 'Custom Modal',
     max: `${MODAL_W} × ${MODAL_H}`,

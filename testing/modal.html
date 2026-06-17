@@ -8,7 +8,7 @@
     open http://localhost:8080/testing/modal.html
 
   The app is wrapped in <div class="pd-mock-modal"> — the Mock Host styles it as
-  a centred modal overlay (min 320x120, max = viewport) over a dimmed backdrop.
+  a top-centred modal overlay (min 320x120, max = viewport) over a dimmed backdrop.
   The surface here is a placeholder ("Your app renders here"); resize it from the
   Dev Tool's Resize control (the backdrop would cover any in-page buttons).
 -->
@@ -78,7 +78,8 @@
     <p>
       Your app renders into <code>&lt;div class="pd-mock-modal"&gt;</code> —
       here it's just a placeholder. The page is dimmed by the modal's backdrop;
-      the modal is centred on top. Resize it from the <strong>Dev Tool</strong>.
+      the modal is docked to the top. Resize it from the
+      <strong>Dev Tool</strong>.
     </p>
 
     <div class="pd-mock-modal" id="surface">

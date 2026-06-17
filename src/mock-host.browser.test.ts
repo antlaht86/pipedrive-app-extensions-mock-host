@@ -434,11 +434,11 @@ test('without a scroll layer the panel still scrolls itself (the frame is opt-in
   expect(panel.scrollHeight).toBeGreaterThan(panel.clientHeight);
 });
 
-test('a scroll layer pins a fixed footer to the modal via its own centring transform', async () => {
+test('a scroll layer pins a fixed footer to the modal via its own transform', async () => {
   host = startPipedriveMockHost();
-  // The modal already centres itself with transform: translate(-50%, -50%), so
-  // it must pin the footer without the host adding another transform (which
-  // would knock it off-centre).
+  // The modal already has a transform: translateX(-50%) (it docks to the
+  // top-centre), so it must pin the footer without the host adding another
+  // transform (which would knock it out of place).
   const modal = renderSurface('pd-mock-modal');
 
   const scroll = document.createElement('div');
@@ -591,6 +591,16 @@ test('a .pd-mock-modal wrapper gets the default modal size', async () => {
   const modal = renderSurface('pd-mock-modal');
 
   expect([modal.offsetWidth, modal.offsetHeight]).toEqual([520, 400]);
+});
+
+test('the modal surface is docked to the top of the viewport, not vertically centred', async () => {
+  host = startPipedriveMockHost();
+  const modal = renderSurface('pd-mock-modal');
+  await createSdk();
+
+  // Like Pipedrive: the modal's top edge sits at the viewport top, rather than
+  // being centred at (innerHeight - height) / 2.
+  expect(modal.getBoundingClientRect().top).toBeLessThanOrEqual(2);
 });
 
 test('RESIZE rejects a modal below the minimum, leaving it unchanged', async () => {

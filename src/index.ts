@@ -286,14 +286,18 @@ const SURFACE_STYLES = `
   .pd-mock-modal {
     box-sizing: border-box;
     position: fixed;
-    top: 50%;
+    /* Docked to the top-centre like Pipedrive (the modal meets the viewport's
+       top edge), not vertically centred. translateX still establishes the
+       containing block the scroll layer's fixed footer pins to (ADR-0010). */
+    top: 0;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translateX(-50%);
     width: 520px;
     height: 400px;
     overflow: auto;
     background: #fff;
-    border-radius: 4px;
+    /* Square top corners since the dialog meets the viewport's top edge. */
+    border-radius: 0 0 4px 4px;
     box-shadow:
       0 0 0 100vmax rgba(20, 24, 31, 0.35),
       0 16px 48px rgba(20, 24, 31, 0.3);
@@ -329,9 +333,9 @@ const SURFACE_STYLES = `
     overflow: hidden;
   }
   /* Panel and floating window have no transform of their own, so give them one
-     to become the fixed-positioning containing block. The modal already centres
-     itself with transform: translate(-50%, -50%) — that transform is its
-     containing block, so it must NOT be overridden here. */
+     to become the fixed-positioning containing block. The modal already has a
+     transform: translateX(-50%) (it docks to the top-centre) — that transform is
+     its containing block, so it must NOT be overridden here. */
   .pd-mock-panel:has(> .pd-mock-scroll-layer),
   .pd-mock-floating-window:has(> .pd-mock-scroll-layer) {
     transform: translateZ(0);
