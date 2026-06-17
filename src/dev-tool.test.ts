@@ -476,3 +476,28 @@ test('the dev tool can be collapsed and expanded via its toggle', () => {
   toggle?.click();
   expect(toggle?.getAttribute('aria-expanded')).toBe('true');
 });
+
+test('clicking the header row (not just the toggle) collapses and expands the dev tool', () => {
+  host = startPipedriveMockHost();
+
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  const header = tool?.querySelector<HTMLElement>('.pd-mock-dev-tool-header');
+  const title = tool?.querySelector<HTMLElement>('.pd-mock-dev-tool-title');
+  const toggle = tool?.querySelector<HTMLButtonElement>(
+    'button[aria-expanded]',
+  );
+
+  expect(tool?.getAttribute('data-collapsed')).not.toBe('true');
+
+  // Click the title — anywhere on the header row should toggle (it bubbles).
+  title?.click();
+  expect(tool?.getAttribute('data-collapsed')).toBe('true');
+  expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+
+  // Click the header again to expand.
+  header?.click();
+  expect(tool?.getAttribute('data-collapsed')).not.toBe('true');
+  expect(toggle?.getAttribute('aria-expanded')).toBe('true');
+});

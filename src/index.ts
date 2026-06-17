@@ -719,6 +719,9 @@ const DEV_TOOL_STYLES = `
     font-weight: 600;
     letter-spacing: 0.01em;
     flex: 0 0 auto;
+    /* The whole header row toggles collapse, so it reads as clickable. */
+    cursor: pointer;
+    user-select: none;
   }
   .pd-mock-dev-tool-header::before {
     content: "";
@@ -935,9 +938,10 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     toggle.setAttribute('aria-expanded', 'true');
     toggle.setAttribute('aria-label', 'Collapse dev tool');
     toggle.textContent = '–';
-    toggle.addEventListener('click', () => {
-      const collapsed = devToolEl.getAttribute('data-collapsed') === 'true';
-      const next = !collapsed;
+    header.appendChild(toggle);
+    devToolEl.appendChild(header);
+
+    const setCollapsed = (next: boolean): void => {
       devToolEl.setAttribute('data-collapsed', String(next));
       toggle.setAttribute('aria-expanded', String(!next));
       toggle.setAttribute(
@@ -945,16 +949,19 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
         next ? 'Expand dev tool' : 'Collapse dev tool',
       );
       toggle.textContent = next ? '+' : '–';
+    };
+
+    // The whole header row toggles collapse — not just the +/- button — so the
+    // user need not aim at the small button. The button lives inside the header,
+    // so its click (incl. keyboard activation) bubbles here and is handled once;
+    // it keeps its own aria-expanded for assistive tech.
+    header.addEventListener('click', () => {
+      setCollapsed(devToolEl.getAttribute('data-collapsed') !== 'true');
     });
-    header.appendChild(toggle);
-    devToolEl.appendChild(header);
 
     // Start collapsed if requested (the toggle's click logic reads this attr).
     if (devToolConfig.startCollapsed) {
-      devToolEl.setAttribute('data-collapsed', 'true');
-      toggle.setAttribute('aria-expanded', 'false');
-      toggle.setAttribute('aria-label', 'Expand dev tool');
-      toggle.textContent = '+';
+      setCollapsed(true);
     }
 
     // Two columns: Controls on the left, the Active Log on the right.

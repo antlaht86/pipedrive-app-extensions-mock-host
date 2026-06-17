@@ -409,8 +409,9 @@ id, and treats that as the surface `RESIZE` sizes and `GET_METADATA` measures:
 
 The host renders its own interactive **Dev Tool** overlay — no consumer markup
 needed, it appears as soon as the host starts. It docks to a corner
-(`bottom-left` by default) and can be collapsed to a compact launcher. It has two
-columns: **Controls** on the left, the **Active Log** on the right.
+(`bottom-left` by default) and can be collapsed to a compact launcher by clicking
+anywhere on its header bar (not just the `+`/`–` button). It has two columns:
+**Controls** on the left, the **Active Log** on the right.
 
 ![The mock host's Dev Tool docked in the bottom-right corner of the Custom Panel page. The app surface on the left is an empty "Your app renders here" placeholder; the Dev Tool shows a green "Mock host" header, a Controls column (Theme, Visibility, Page, Resize) and an Active Log listing the app's `initialize` command.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/dev-tool-panel.png)
 
