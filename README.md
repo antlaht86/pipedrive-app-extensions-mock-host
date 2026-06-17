@@ -15,7 +15,7 @@ Vue, Next.js, or plain vanilla JS.
 It does **not** replace the SDK. You keep using the real
 `@pipedrive/app-extensions-sdk`; this is the host it connects to.
 
-![The mock host running on localhost: a Custom Panel surface with a "Your app renders here" placeholder and header bar, a snackbar reading "MOCK Deal saved!" in the corner, and the Dev Tool's Active Log showing the app's `show_snackbar` command.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/hero-panel-snackbar.png)
+![The mock host running on localhost: a Custom Panel surface with a "Your app renders here" placeholder and header bar, a snackbar reading "MOCK Deal saved!" in the corner, and the Dev Tool's Active Log showing the app's `show_snackbar` command.](https://res.cloudinary.com/zimple/image/upload/v1781674346/pipedrive-app-extensions-mock-host/hero-panel-snackbar.png)
 
 ## How it works
 
@@ -291,7 +291,7 @@ const { windowWidth, windowHeight } = await sdk.execute(Command.GET_METADATA);
 const { token } = await sdk.execute(Command.GET_SIGNED_TOKEN);
 ```
 
-![A mock-host confirmation dialog ("Delete this deal?" with Cancel and Delete buttons) centred over the dimmed playground, with the Dev Tool's Active Log showing the app's `show_confirmation` command.](https://res.cloudinary.com/zimple/image/upload/pipedrive-app-extensions-mock-host/snackbar-confirmation.png)
+![A mock-host confirmation dialog ("Delete this deal?" with Cancel and Delete buttons) centred over the dimmed playground, with the Dev Tool's Active Log showing the app's `show_confirmation` command.](https://res.cloudinary.com/zimple/image/upload/v1781674347/pipedrive-app-extensions-mock-host/snackbar-confirmation.png)
 
 ## Surfaces
 
@@ -419,10 +419,11 @@ command, event, and surface:
 
 - **Vanilla HTML playground** — load the built bundles with no bundler. Each
   surface is a "Your app renders here" placeholder, so the **Dev Tool** is what
-  you drive; the in-page buttons fire the app-side Commands the Dev Tool can't
-  send:
-  - [`testing/index.html`](./testing/index.html) — the **Custom Panel** surface,
-    with an in-page button for every command and event.
+  you drive:
+  - [`testing/index.html`](./testing/index.html) — the **Custom Panel** surface.
+    It exposes the initialized SDK as `window.sdk`, so you can fire app-side
+    Commands (the ones the Dev Tool can't send) straight from the devtools
+    console, e.g. `sdk.execute(AppExtensionsSDK.Command.SHOW_SNACKBAR, …)`.
   - [`testing/modal.html`](./testing/modal.html) — the **Custom Modal** surface
     (resize it from the Dev Tool).
   - [`testing/floating-window.html`](./testing/floating-window.html) — the

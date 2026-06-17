@@ -1,6 +1,6 @@
 {
   "name": "pipedrive-app-extensions-mock-host",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Development-only mock host for the Pipedrive App Extensions SDK: lets your app extension's code run on localhost — talking to the real @pipedrive/app-extensions-sdk — by playing the Pipedrive window and rendering real UI elements. Framework-agnostic.",
   "keywords": [
     "pipedrive",
@@ -12,13 +12,13 @@
     "ui",
     "development"
   ],
-  "homepage": "https://github.com/antlaht86/pipedrive-app-extensions-sdk-mock#readme",
+  "homepage": "https://github.com/antlaht86/pipedrive-app-extensions-mock-host#readme",
   "bugs": {
-    "url": "https://github.com/antlaht86/pipedrive-app-extensions-sdk-mock/issues"
+    "url": "https://github.com/antlaht86/pipedrive-app-extensions-mock-host/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/antlaht86/pipedrive-app-extensions-sdk-mock.git"
+    "url": "git+https://github.com/antlaht86/pipedrive-app-extensions-mock-host.git"
   },
   "author": "antlaht86 <antti.lahtinen@zimple.fi>",
   "license": "MIT",

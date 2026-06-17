@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  Comprehensive manual playground for the Pipedrive App Extensions Mock Host.
+  Manual playground for the Custom Panel surface wrapper.
 
   Run from the repo root:
     npm run build
@@ -8,11 +8,11 @@
     open http://localhost:8080/testing/
 
   The app surface is a placeholder ("Your app renders here") — in a real
-  integration your framework renders into <div class="pd-mock-panel">. Host-side
-  behaviour (resize, events, focus mode) is driven from the Dev Tool in the
-  corner; the buttons in the page fire the app-side SDK Commands the Dev Tool
-  cannot send on your behalf. See modal.html and floating-window.html for the
-  other two surfaces.
+  integration your framework renders into <div class="pd-mock-panel">. There are
+  no in-page controls: drive host-side behaviour from the Dev Tool in the corner,
+  and fire app-side SDK Commands from the devtools console via `window.sdk` (e.g.
+  `sdk.execute(AppExtensionsSDK.Command.SHOW_SNACKBAR, { message: 'Hi' })`). See
+  modal.html and floating-window.html for the other two surfaces.
 -->
 <html lang="en">
   <head>
@@ -32,43 +32,6 @@
       }
       h1 {
         font-size: 1.2rem;
-      }
-      h2 {
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #5b626b;
-        margin: 1.2rem 0 0.4rem;
-      }
-      button {
-        font: inherit;
-        padding: 0.35rem 0.7rem;
-        margin: 0.15rem 0.15rem 0 0;
-        border: 1px solid #1a1a1a;
-        border-radius: 6px;
-        background: #fff;
-        cursor: pointer;
-      }
-      button:hover {
-        background: #f2f2f2;
-      }
-      input {
-        font: inherit;
-        padding: 0.25rem 0.45rem;
-        width: 5rem;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-      }
-      #log {
-        margin-top: 1rem;
-        padding: 0.5rem 0.75rem;
-        border-radius: 6px;
-        background: #11151c;
-        color: #d6f5c3;
-        font-family: ui-monospace, monospace;
-        font-size: 0.78rem;
-        white-space: pre-wrap;
-        min-height: 5rem;
       }
       /* Stand-in for the consumer's app. In a real integration the framework
          renders its own UI into the surface; here it's just a marker so the
@@ -121,33 +84,10 @@
       Your app renders into the
       <code>&lt;div class="pd-mock-panel"&gt;</code> on the left — here it's
       just a placeholder. Drive host-side behaviour (resize, events, focus mode)
-      from the <strong>Dev Tool</strong> in the corner; the buttons below fire
-      the app-side SDK Commands the Dev Tool can't send for you. Results append
-      to the log.
+      from the <strong>Dev Tool</strong> in the corner. The initialized SDK is
+      exposed as <code>window.sdk</code>, so you can fire app-side Commands from
+      the devtools console.
     </p>
-
-    <h2>App actions (SDK Commands)</h2>
-    <button data-cmd="snackbar">Snackbar</button>
-    <button data-cmd="confirmation">Confirmation</button>
-    <button data-cmd="modal-deal">Open deal modal</button>
-    <button data-cmd="modal-custom">Open custom modal</button>
-    <button data-cmd="close-modal">Close modal</button>
-    <button data-cmd="redirect">Redirect → deals</button>
-    <button data-cmd="notification">Set notification 3</button>
-    <button data-cmd="focus-on">Focus mode on</button>
-    <button data-cmd="focus-off">Focus mode off</button>
-    <button data-cmd="token">Get signed token</button>
-    <br />
-    <label>Panel height <input id="height" type="number" value="260" /></label>
-    <button data-cmd="resize">Resize</button>
-    <button data-cmd="metadata">Get metadata</button>
-
-    <h2>Events (host → app)</h2>
-    <button data-cmd="emit-visibility">Emit VISIBILITY</button>
-    <button data-cmd="emit-theme">Emit USER_SETTINGS_CHANGE</button>
-    <button data-cmd="emit-close-modal">Emit CLOSE_CUSTOM_MODAL</button>
-
-    <div id="log">booting…</div>
 
     <div
       class="pd-mock-panel"
@@ -173,113 +113,42 @@
     <script src="../dist/index.global.js"></script>
     <script>
       (async () => {
-        const logEl = document.getElementById('log');
-        const heightEl = document.getElementById('height');
-        const log = (msg) => {
-          logEl.textContent = `${msg}\n${logEl.textContent}`.slice(0, 2000);
-        };
-
         // The UMD global is either the class itself or a namespace whose
         // .default is the class — normalize both. Enums hang off the global.
         const SDKGlobal = window.AppExtensionsSDK;
         const AppExtensionsSDK =
           typeof SDKGlobal === 'function' ? SDKGlobal : SDKGlobal.default;
-        const { Command, Event } = SDKGlobal;
+        const { Event } = SDKGlobal;
         const { startPipedriveMockHost } = window.PipedriveMockHost;
 
         // Try ?theme=dark to see the dark host UI.
         const theme = new URLSearchParams(location.search).get('theme');
-        const host = startPipedriveMockHost({
+        startPipedriveMockHost({
           theme: theme === 'dark' ? 'dark' : 'light',
           // The panel is pinned to the left edge on this page, so dock the Dev
           // Tool bottom-right to keep the two clear of each other.
           devTool: { position: 'bottom-right' },
-          // A relative URL, not inline HTML. Inline closing body markup in this
-          // script would confuse live-reload servers (e.g. VS Code Live Server)
-          // that inject their snippet before the first closing body tag.
           customModals: { 'demo-modal': 'custom-modal.html' },
         });
+
         // Open the panel at its maximum height (750px; width is fixed at 385).
         const sdk = await new AppExtensionsSDK({
           identifier: 'dev-local',
         }).initialize({ size: { height: 750 } });
-        log('SDK initialized ✓');
 
-        // Listen for every host-driven event and log it.
+        // No in-page buttons — expose the SDK so Commands can be fired from the
+        // console (and so tooling can drive it), and log host events there.
+        window.sdk = sdk;
         for (const ev of [
           Event.VISIBILITY,
           Event.USER_SETTINGS_CHANGE,
           Event.CLOSE_CUSTOM_MODAL,
           Event.PAGE_VISIBILITY_STATE,
         ]) {
-          sdk.listen(ev, (r) => log(`event ${ev}: ${JSON.stringify(r.data)}`));
+          sdk.listen(ev, (r) => console.log('[event]', ev, r.data));
         }
-
-        const actions = {
-          snackbar: () =>
-            sdk.execute(Command.SHOW_SNACKBAR, {
-              message: 'Deal saved!',
-              link: { url: '#', label: 'View' },
-            }),
-          confirmation: async () => {
-            const { confirmed } = await sdk.execute(Command.SHOW_CONFIRMATION, {
-              title: 'Delete this deal?',
-              description: 'This cannot be undone.',
-              okText: 'Delete',
-              okColor: 'negative',
-            });
-            log(`confirmation → confirmed: ${confirmed}`);
-          },
-          'modal-deal': async () => {
-            const r = await sdk.execute(Command.OPEN_MODAL, { type: 'deal' });
-            log(`deal modal → ${JSON.stringify(r)}`);
-          },
-          'modal-custom': async () => {
-            const r = await sdk.execute(Command.OPEN_MODAL, {
-              type: 'custom_modal',
-              action_id: 'demo-modal',
-            });
-            log(`custom modal → ${JSON.stringify(r)}`);
-          },
-          'close-modal': () => sdk.execute(Command.CLOSE_MODAL),
-          redirect: () =>
-            sdk.execute(Command.REDIRECT_TO, { view: 'deals', id: 42 }),
-          notification: () =>
-            sdk.execute(Command.SET_NOTIFICATION, { number: 3 }),
-          'focus-on': () => sdk.execute(Command.SET_FOCUS_MODE, true),
-          'focus-off': () => sdk.execute(Command.SET_FOCUS_MODE, false),
-          token: async () => {
-            const { token } = await sdk.execute(Command.GET_SIGNED_TOKEN);
-            log(`signed token → ${token}`);
-          },
-          resize: () =>
-            sdk.execute(Command.RESIZE, { height: Number(heightEl.value) }),
-          metadata: async () => {
-            const m = await sdk.execute(Command.GET_METADATA);
-            log(`metadata → ${m.windowWidth}×${m.windowHeight}px`);
-          },
-          'emit-visibility': () =>
-            host.emit(Event.VISIBILITY, {
-              is_visible: true,
-              context: { invoker: 'user' },
-            }),
-          'emit-theme': () =>
-            host.emit(Event.USER_SETTINGS_CHANGE, { theme: 'dark' }),
-          'emit-close-modal': () => host.emit(Event.CLOSE_CUSTOM_MODAL),
-        };
-
-        document.querySelectorAll('button[data-cmd]').forEach((btn) => {
-          btn.addEventListener('click', async () => {
-            try {
-              await actions[btn.dataset.cmd]?.();
-              log(`▶ ${btn.dataset.cmd}`);
-            } catch (err) {
-              log(`✗ ${btn.dataset.cmd}: ${err.message}`);
-            }
-          });
-        });
       })().catch((err) => {
-        document.getElementById('log').textContent = 'Error: ' + err.message;
+        console.error('[panel playground] init failed:', err);
       });
     </script>
   </body>
