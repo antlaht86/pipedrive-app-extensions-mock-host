@@ -1,5 +1,17 @@
 # pipedrive-app-extensions-mock-host
 
+## 0.2.1
+
+### Patch Changes
+
+- update docs
+
+## 0.2.0
+
+### Minor Changes
+
+- Add an opt-in `.pd-mock-scroll-layer` wrapper that turns a surface into a non-scrolling frame so `position: fixed` footers pin to the surface
+
 ## 0.1.0
 
 ### Minor Changes
