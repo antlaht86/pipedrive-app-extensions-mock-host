@@ -523,23 +523,62 @@ A few behaviours worth knowing when wiring the host into a dev setup:
 
 ## Keeping it out of production
 
-This is a **development-only** tool. Layered defence keeps it out of your
-production build:
+This is a **development-only** tool. The reliable way to keep it out of your
+production bundle is a **dynamic `import()` behind a build-time dev gate**, so the
+bundler code-splits the package into a chunk production never loads:
+
+```ts
+import type { MockHost } from 'pipedrive-app-extensions-mock-host';
+
+let host: MockHost | undefined;
+if (process.env.NODE_ENV !== 'production') {
+  const { startPipedriveMockHost } =
+    await import('pipedrive-app-extensions-mock-host');
+  host = startPipedriveMockHost();
+}
+```
+
+This is what the [Next.js playground](./testing/next-app) does, and its
+production build contains **zero** bytes of the package (verified by grepping the
+built chunks). Keep any types as `import type` — they erase at compile time and
+pull no runtime code in.
+
+### Why not a plain static import?
+
+A **static** `import { startPipedriveMockHost } from '…'` _can_ be tree-shaken —
+but only when the bundler can **prove** the call is dead code, which is easy to
+break. It works when the gate is an inlined flag checked right at the call site
+and `sideEffects: false` then lets the bundler drop the now-unused import:
+
+```ts
+import { startPipedriveMockHost } from 'pipedrive-app-extensions-mock-host';
+// Tree-shaken out in production by Vite/Rollup AND Next.js/Turbopack (measured):
+if (process.env.NODE_ENV !== 'production') startPipedriveMockHost();
+```
+
+Two common variations silently **ship** the package instead:
+
+- **Gate behind a helper function** — `if (shouldStart()) startPipedriveMockHost();`
+  where `shouldStart()` lives in another module. The bundler can't prove the call
+  dead across the function boundary, so it keeps the import. (This bit a real
+  consumer: ~65 KB gzip, duplicated across every route chunk.)
+- **Unconditional call** — `startPipedriveMockHost({ enabled: … })` always ships;
+  only its _runtime_ behaviour is gated, not its presence in the bundle.
+
+The dynamic `import()` above is robust against both: if the gate is ever _not_
+eliminated, the package lands in a separate on-demand chunk that initial page
+loads never fetch — it is never inlined into your route bundles. When in doubt,
+use it.
+
+### Runtime safety nets
+
+Even if it does end up bundled and called in production, two guards keep it
+inert (they limit the damage; they do **not** remove it from the bundle):
 
 1. **Install it as a `devDependency`** (`npm install --save-dev …`).
-2. **Gate the call behind a build-time dev flag.** The package is
-   `sideEffects: false` with no runtime dependencies, so a dead-branch call is
-   tree-shaken out of your production bundle entirely:
-
-   ```ts
-   if (import.meta.env.DEV) startPipedriveMockHost();
-   // or pass the flag and let the host disable itself:
-   startPipedriveMockHost({ enabled: import.meta.env.DEV });
-   ```
-
-3. **Safety net.** If it is ever started with `NODE_ENV=production`, it stays
-   inert and logs a warning instead of running. `{ enabled: false }` also
-   returns an inert handle (no warning) for an explicit off-switch.
+2. Started with `NODE_ENV=production`, it `console.warn`s and stays inert
+   (injects nothing, registers no listener). `{ enabled: false }` returns the
+   inert handle with no warning, for an explicit off-switch.
 
 ## Development
 

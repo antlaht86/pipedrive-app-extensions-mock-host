@@ -7,8 +7,15 @@ warning) — defence in depth across four layers:
 
 1. **Design — tree-shakeable, zero runtime deps.** `dependencies` is empty (the
    Real SDK is a `peerDependency`) and `sideEffects: false`. A call gated behind
-   a statically-known dev flag is dead code in production, so the import is
-   eliminated entirely from the consumer's prod bundle.
+   a statically-known dev flag **at the call site** is dead code in production,
+   so even a static import is eliminated from the prod bundle (measured: removed
+   by both Vite/Rollup and Next.js/Turbopack). This is **fragile**: the gate must
+   be statically provable — moving it behind a helper function in another module,
+   or calling unconditionally with `enabled`, keeps the package in the bundle (a
+   real consumer shipped ~65 KB gzip that way). The **robust** path the docs lead
+   with is a dynamic `import()` behind the gate: if the gate is ever not
+   eliminated, the package lands in an on-demand chunk prod never fetches, rather
+   than being inlined into route bundles.
 2. **Docs — the obvious path.** Install as a `devDependency` and gate the call
    behind a build-time dev flag (`import.meta.env.DEV`, `process.env.NODE_ENV`,
    …), e.g. `startPipedriveMockHost({ enabled: import.meta.env.DEV })`.
