@@ -878,9 +878,46 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
   // event name. `emit` pushes to every port for an event.
   const listeners = new Map<string, Set<MessagePort>>();
 
+  // PAGE_VISIBILITY_STATE is special: the SDK does NOT register a host listener
+  // for it. `listen(PAGE_VISIBILITY_STATE)` instead watches the page's own
+  // `document` `visibilitychange` and reports `document.visibilityState` (see the
+  // SDK's onPageVisibilityChange). So to drive the app's listener we simulate a
+  // real visibility change: momentarily override `document.visibilityState` and
+  // dispatch the event the SDK is listening for, then restore it immediately so
+  // no global state leaks. (A real browser tab switch reaches the app the same
+  // way, with no host involvement.)
+  const dispatchPageVisibility = (state: 'visible' | 'hidden'): void => {
+    const original = Object.getOwnPropertyDescriptor(
+      document,
+      'visibilityState',
+    );
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => state,
+    });
+    // Restore in `finally` so a throwing listener can never leave the override
+    // (and thus a wrong global `document.visibilityState`) in place.
+    try {
+      document.dispatchEvent(new Event('visibilitychange'));
+    } finally {
+      if (original) {
+        Object.defineProperty(document, 'visibilityState', original);
+      } else {
+        delete (document as { visibilityState?: unknown }).visibilityState;
+      }
+    }
+  };
+
   // Push an event to every listener registered for it.
   const emitEvent = (eventName: string, eventData: unknown): void => {
     logToDevTool('host → app', 'event', eventName, eventData);
+    // PAGE_VISIBILITY_STATE never travels the host port path (see above); route
+    // it through a real document `visibilitychange` so the app's listener fires.
+    if (eventName === EVENT_PAGE_VISIBILITY_STATE) {
+      const state = (eventData as { state?: 'visible' | 'hidden' })?.state;
+      dispatchPageVisibility(state === 'hidden' ? 'hidden' : 'visible');
+      return;
+    }
     const ports = listeners.get(eventName);
     if (!ports) {
       return;

@@ -40,7 +40,7 @@ Therefore the Dev Tool exposes only controls whose effect the **host can produce
 on its own**, in two flavours:
 
 - **Emit an Event** (host → app): `USER_SETTINGS_CHANGE` (theme), `VISIBILITY`,
-  `PAGE_VISIBILITY_STATE`. The host owns this channel.
+  `PAGE_VISIBILITY_STATE`. The host owns this channel — with one exception below.
 - **Manipulate host-owned Surface state** directly: **Resize** (the host owns the
   surface element, so it sets its dimensions, reusing the real `RESIZE` bounds
   validation) and the **Focus mode** toggle (the host owns disabling the floating
@@ -52,6 +52,23 @@ them from the Dev Tool would fake an inbound command that never happened,
 breaking fidelity and polluting the Active Log with events that did not occur.
 Such commands appear in the Dev Tool **only as Active Log entries** when the app
 actually sends them.
+
+## `PAGE_VISIBILITY_STATE` is driven through the page, not the host port
+
+`USER_SETTINGS_CHANGE` and `VISIBILITY` reach the app over the host event channel:
+the app's `sdk.listen(...)` registers a `MessagePort` with the host, and `emit`
+posts to it. `PAGE_VISIBILITY_STATE` is the exception — the installed SDK
+(`dist/index.js`, `onPageVisibilityChange`) does **not** register a listener with
+the host for it. Instead `listen(PAGE_VISIBILITY_STATE)` watches the page's own
+`document` `visibilitychange` and reports `document.visibilityState`. A host
+`emit` to the (non-existent) port would therefore reach nobody.
+
+So the Dev Tool's **Page** control simulates a genuine visibility change: it
+momentarily overrides `document.visibilityState` and dispatches a real
+`document` `visibilitychange` (restored immediately, so no global state leaks) —
+the same event a browser tab switch fires. `emit()` special-cases the event so
+the public controller API behaves identically. Without this, the control would be
+a no-op despite the event being part of the SDK's contract.
 
 ## Consequences
 

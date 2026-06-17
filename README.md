@@ -421,7 +421,10 @@ app can):
 
 - **Theme** — emit `USER_SETTINGS_CHANGE` (`light` / `dark`).
 - **Visibility** — emit `VISIBILITY` (`is_visible` + `invoker`).
-- **Page** — emit `PAGE_VISIBILITY_STATE` (`visible` / `hidden`).
+- **Page** — drive `PAGE_VISIBILITY_STATE` (`visible` / `hidden`). The SDK reads
+  page visibility from the document, not the host event channel, so this control
+  dispatches a real `visibilitychange` on the page — exactly what a browser tab
+  switch does — and your `listen(PAGE_VISIBILITY_STATE)` callback fires.
 - **Resize** — resize the active surface, clamped to that surface's bounds.
 - **Focus mode** — disable the floating window's close button (floating-window
   only).

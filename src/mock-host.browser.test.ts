@@ -1234,3 +1234,47 @@ test('the confirmation dialog surface is overridable via custom properties', asy
   ).findByRole('dialog');
   expect(getComputedStyle(dialog).backgroundColor).toBe('rgb(9, 9, 9)');
 });
+
+test('the Dev Tool Page control fires the app PAGE_VISIBILITY_STATE listener', async () => {
+  host = startPipedriveMockHost();
+  renderPanel();
+  const sdk = await createSdk();
+
+  // The SDK delivers PAGE_VISIBILITY_STATE from the page's own visibilitychange
+  // (not the host event channel), so the Dev Tool must simulate a real one.
+  const states: Array<unknown> = [];
+  sdk.listen(Event.PAGE_VISIBILITY_STATE, (r) => states.push(r.data));
+  await tick();
+
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  const select = tool?.querySelector<HTMLSelectElement>(
+    'select[aria-label="State"]',
+  );
+  const emit = tool?.querySelector<HTMLButtonElement>(
+    'button[aria-label="Emit page visibility state"]',
+  );
+  select!.value = 'hidden';
+  emit?.click();
+
+  await vi.waitFor(() => expect(states).toContainEqual({ state: 'hidden' }));
+});
+
+test('controller.emit(PAGE_VISIBILITY_STATE) reaches the app listener', async () => {
+  host = startPipedriveMockHost();
+  renderPanel();
+  const sdk = await createSdk();
+
+  // The public controller API must drive this event the same way the Dev Tool
+  // does — via a real document visibilitychange, not the (unused) host port.
+  const states: Array<unknown> = [];
+  sdk.listen(Event.PAGE_VISIBILITY_STATE, (r) => states.push(r.data));
+  await tick();
+
+  host.emit(Event.PAGE_VISIBILITY_STATE, { state: 'hidden' });
+
+  await vi.waitFor(() => expect(states).toContainEqual({ state: 'hidden' }));
+  // The override is restored immediately — no global state leaks.
+  expect(document.visibilityState).not.toBe('hidden');
+});

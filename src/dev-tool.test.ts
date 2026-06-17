@@ -160,6 +160,38 @@ test('the page visibility control emits PAGE_VISIBILITY_STATE with state', () =>
   expect(log?.textContent).toContain('state');
 });
 
+test('the page visibility control fires a real document visibilitychange', () => {
+  host = startPipedriveMockHost();
+
+  const tool = host.shadowRoot.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  );
+  const select = tool?.querySelector<HTMLSelectElement>(
+    'select[aria-label="State"]',
+  );
+  const emit = tool?.querySelector<HTMLButtonElement>(
+    'button[aria-label="Emit page visibility state"]',
+  );
+
+  // The SDK reads page visibility from document.visibilityState during the
+  // document `visibilitychange` event, so the control must drive exactly that.
+  let observed: string | undefined;
+  const onChange = (): void => {
+    observed = document.visibilityState;
+  };
+  document.addEventListener('visibilitychange', onChange);
+  try {
+    select!.value = 'hidden';
+    emit?.click();
+  } finally {
+    document.removeEventListener('visibilitychange', onChange);
+  }
+
+  expect(observed).toBe('hidden');
+  // The override is restored immediately — no global state leaks.
+  expect(document.visibilityState).not.toBe('hidden');
+});
+
 test('the resize control resizes the active surface', () => {
   const panel = document.createElement('div');
   panel.className = 'pd-mock-panel';
