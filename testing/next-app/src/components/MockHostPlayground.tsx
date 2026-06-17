@@ -458,16 +458,27 @@ export default function MockHostPlayground({
       </div>
 
       {/* The surface wrapper — sized & positioned by the host, which also
-          injects the header bar as the wrapper's first child. Padding lives on
-          an inner content box so that header sits flush to the surface edges. */}
+          injects the header bar as the wrapper's first child. The app content
+          lives in a scroll layer, which emulates Pipedrive's production surface
+          (an overflow:hidden wrapper around a scrolling iframe): it is the single
+          scroll container, so the position:fixed footer pins to the surface — its
+          containing block — instead of the browser window. */}
       <div className={cfg.className} style={cfg.wrapperStyle}>
-        <div style={{ padding: 14 }}>
+        <div
+          className="pd-mock-scroll-layer"
+          style={{ padding: 14, paddingBottom: 52 }}
+        >
           <div className="text-xs tracking-widest text-accent">APP SURFACE</div>
           <div className="mt-1 text-sm font-bold">{cfg.label}</div>
           <p className="mt-2 text-xs text-muted">
             This box is your app. RESIZE / GET_METADATA target it; it opened at
             its maximum ({cfg.max}).
           </p>
+          {/* Filler so the layer is taller than the surface and actually scrolls. */}
+          <div style={{ height: 600 }} />
+          <div className="fixed inset-x-0 bottom-0 border-t border-line bg-panel px-3.5 py-2.5 text-xs text-muted">
+            Sticky footer — pinned to the surface while the content scrolls
+          </div>
         </div>
       </div>
     </div>

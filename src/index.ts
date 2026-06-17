@@ -313,6 +313,39 @@ const SURFACE_STYLES = `
     box-shadow: 0 8px 28px rgba(20, 24, 31, 0.22);
     z-index: 2147483640;
   }
+  /* Scroll layer (opt-in). A consumer wraps its content in
+     <div class="pd-mock-scroll-layer"> to emulate Pipedrive's production
+     surface, which renders the app in an overflow:hidden wrapper around a
+     scrolling <iframe> (see ADR-0010). When the layer is present, the surface
+     becomes a non-scrolling flex-column "frame" that establishes the containing
+     block for position:fixed descendants — so a bottom-pinned footer pins to the
+     surface, not the browser window — and the scroll layer is the single scroll
+     container. Without the layer, the surface scrolls itself as before. */
+  .pd-mock-panel:has(> .pd-mock-scroll-layer),
+  .pd-mock-modal:has(> .pd-mock-scroll-layer),
+  .pd-mock-floating-window:has(> .pd-mock-scroll-layer) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  /* Panel and floating window have no transform of their own, so give them one
+     to become the fixed-positioning containing block. The modal already centres
+     itself with transform: translate(-50%, -50%) — that transform is its
+     containing block, so it must NOT be overridden here. */
+  .pd-mock-panel:has(> .pd-mock-scroll-layer),
+  .pd-mock-floating-window:has(> .pd-mock-scroll-layer) {
+    transform: translateZ(0);
+  }
+  .pd-mock-panel:has(> .pd-mock-scroll-layer) > .pd-mock-surface-header,
+  .pd-mock-modal:has(> .pd-mock-scroll-layer) > .pd-mock-surface-header,
+  .pd-mock-floating-window:has(> .pd-mock-scroll-layer) > .pd-mock-surface-header {
+    flex: none;
+  }
+  .pd-mock-scroll-layer {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
   .pd-mock-collapsed > :not(.pd-mock-surface-header) {
     display: none !important;
   }

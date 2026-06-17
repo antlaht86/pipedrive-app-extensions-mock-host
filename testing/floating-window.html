@@ -103,10 +103,32 @@
       <button id="hide" disabled>Hide floating window</button>
     </p>
 
-    <div class="pd-mock-floating-window" id="surface" style="padding: 12px">
-      <div class="app-placeholder">
-        <strong>Your app renders here</strong>
-        <span>Floating Window surface</span>
+    <div class="pd-mock-floating-window" id="surface">
+      <!-- Scroll layer: the single scroll container, so the position:fixed footer
+           below pins to the window (its containing block) instead of the page. -->
+      <div class="pd-mock-scroll-layer" style="padding: 12px 12px 52px">
+        <div class="app-placeholder">
+          <strong>Your app renders here</strong>
+          <span>Floating Window surface</span>
+        </div>
+        <!-- Filler so the layer is taller than the window and actually scrolls. -->
+        <div style="height: 600px"></div>
+        <div
+          style="
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 8px 12px;
+            box-sizing: border-box;
+            background: #fbfcfd;
+            border-top: 1px solid #e8ebef;
+            font-size: 0.78rem;
+            color: #6b7280;
+          "
+        >
+          Sticky footer — pinned to the window while the content scrolls
+        </div>
       </div>
     </div>
 

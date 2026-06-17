@@ -81,10 +81,32 @@
       the modal is centred on top. Resize it from the <strong>Dev Tool</strong>.
     </p>
 
-    <div class="pd-mock-modal" id="surface" style="padding: 18px">
-      <div class="app-placeholder">
-        <strong>Your app renders here</strong>
-        <span>Custom Modal surface</span>
+    <div class="pd-mock-modal" id="surface">
+      <!-- Scroll layer: the single scroll container, so the position:fixed footer
+           below pins to the modal (its containing block) instead of the window. -->
+      <div class="pd-mock-scroll-layer" style="padding: 18px 18px 56px">
+        <div class="app-placeholder">
+          <strong>Your app renders here</strong>
+          <span>Custom Modal surface</span>
+        </div>
+        <!-- Filler so the layer is taller than the modal and actually scrolls. -->
+        <div style="height: 700px"></div>
+        <div
+          style="
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 10px 18px;
+            box-sizing: border-box;
+            background: #fbfcfd;
+            border-top: 1px solid #e8ebef;
+            font-size: 0.8rem;
+            color: #6b7280;
+          "
+        >
+          Sticky footer — pinned to the modal while the content scrolls
+        </div>
       </div>
     </div>
 

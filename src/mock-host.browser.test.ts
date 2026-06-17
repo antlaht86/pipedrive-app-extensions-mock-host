@@ -375,6 +375,100 @@ test('the panel header has a refresh and a more (⋯) button', async () => {
   expect(ui.getByRole('button', { name: /more/i })).toBeVisible();
 });
 
+// Surface scroll layer — emulating Pipedrive's iframe wrapper without an iframe.
+// Production renders `.AppExtensionsBlocks_iframeWrapper { overflow: hidden }`
+// wrapping the surface `<iframe>` (the scroller). We mirror that with the frame
+// (`.pd-mock-panel`) as a non-scrolling containing block and a consumer-supplied
+// `.pd-mock-scroll-layer` as the single scroller, so a `position: fixed` footer
+// pins to the panel — not the browser window — exactly as it does in production.
+
+test('a scroll layer makes the panel a non-scrolling frame with a pinned fixed footer', async () => {
+  host = startPipedriveMockHost();
+  const panel = renderPanel();
+
+  // The consumer wraps its content in the scroll layer (the host injects the
+  // header). A bottom-pinned footer uses the same CSS that works in production.
+  const scroll = document.createElement('div');
+  scroll.className = 'pd-mock-scroll-layer';
+  const tall = document.createElement('div');
+  tall.style.height = '1000px';
+  const footer = document.createElement('div');
+  footer.style.cssText =
+    'position: fixed; bottom: 0; left: 0; right: 0; height: 44px;';
+  footer.textContent = 'footer';
+  scroll.append(tall, footer);
+  panel.appendChild(scroll);
+
+  const sdk = await createSdk();
+  await sdk.execute(Command.RESIZE, { height: 300 });
+
+  // Exactly one scroller: the scroll layer overflows, the panel frame does not.
+  expect(panel.scrollHeight).toBe(panel.clientHeight);
+  expect(scroll.scrollHeight).toBeGreaterThan(scroll.clientHeight);
+
+  // The fixed footer pins to the panel frame (its containing block), not the
+  // window: its bottom edge sits at the panel's bottom (allowing 1px border).
+  const panelRect = panel.getBoundingClientRect();
+  const footerBefore = footer.getBoundingClientRect();
+  expect(Math.abs(footerBefore.bottom - panelRect.bottom)).toBeLessThanOrEqual(
+    2,
+  );
+
+  // …and it does not move while the scroll layer scrolls.
+  scroll.scrollTop = scroll.scrollHeight;
+  const footerAfter = footer.getBoundingClientRect();
+  expect(footerAfter.top).toBeCloseTo(footerBefore.top, 0);
+});
+
+test('without a scroll layer the panel still scrolls itself (the frame is opt-in)', async () => {
+  host = startPipedriveMockHost();
+  const panel = renderPanel();
+  const tall = document.createElement('div');
+  tall.style.height = '1000px';
+  panel.appendChild(tall);
+
+  const sdk = await createSdk();
+  await sdk.execute(Command.RESIZE, { height: 300 });
+
+  // No scroll layer → the panel is the scroll container, exactly as before.
+  expect(panel.scrollHeight).toBeGreaterThan(panel.clientHeight);
+});
+
+test('a scroll layer pins a fixed footer to the modal via its own centring transform', async () => {
+  host = startPipedriveMockHost();
+  // The modal already centres itself with transform: translate(-50%, -50%), so
+  // it must pin the footer without the host adding another transform (which
+  // would knock it off-centre).
+  const modal = renderSurface('pd-mock-modal');
+
+  const scroll = document.createElement('div');
+  scroll.className = 'pd-mock-scroll-layer';
+  const tall = document.createElement('div');
+  tall.style.height = '1000px';
+  const footer = document.createElement('div');
+  footer.style.cssText =
+    'position: fixed; bottom: 0; left: 0; right: 0; height: 44px;';
+  footer.textContent = 'footer';
+  scroll.append(tall, footer);
+  modal.appendChild(scroll);
+
+  const sdk = await createSdk();
+  await sdk.execute(Command.RESIZE, { height: 300 });
+
+  // One scroller: the layer overflows, the modal frame does not.
+  expect(modal.scrollHeight).toBe(modal.clientHeight);
+  expect(scroll.scrollHeight).toBeGreaterThan(scroll.clientHeight);
+
+  // The footer pins to the modal bottom and does not move while scrolling.
+  const modalRect = modal.getBoundingClientRect();
+  const footerBefore = footer.getBoundingClientRect();
+  expect(Math.abs(footerBefore.bottom - modalRect.bottom)).toBeLessThanOrEqual(
+    2,
+  );
+  scroll.scrollTop = scroll.scrollHeight;
+  expect(footer.getBoundingClientRect().top).toBeCloseTo(footerBefore.top, 0);
+});
+
 test('the floating window header X closes it and emits a user VISIBILITY event', async () => {
   host = startPipedriveMockHost();
   const fw = renderSurface('pd-mock-floating-window');

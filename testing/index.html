@@ -92,18 +92,35 @@
     <div
       class="pd-mock-panel"
       id="surface"
-      style="
-        position: fixed;
-        left: 0;
-        top: 2rem;
-        padding: 14px;
-        box-sizing: border-box;
-        overflow: auto;
-      "
+      style="position: fixed; left: 0; top: 2rem; box-sizing: border-box"
     >
-      <div class="app-placeholder">
-        <strong>Your app renders here</strong>
-        <span>Custom Panel surface</span>
+      <!-- Scroll layer: emulates Pipedrive's iframe — the single scroll
+           container, so the position:fixed footer below pins to the panel (its
+           containing block) instead of the browser window. Padding-bottom
+           reserves room so the last content clears the footer. -->
+      <div class="pd-mock-scroll-layer" style="padding: 14px 14px 56px">
+        <div class="app-placeholder">
+          <strong>Your app renders here</strong>
+          <span>Custom Panel surface</span>
+        </div>
+        <!-- Filler so the layer is taller than the panel and actually scrolls. -->
+        <div style="height: 900px"></div>
+        <div
+          style="
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 10px 14px;
+            box-sizing: border-box;
+            background: #fbfcfd;
+            border-top: 1px solid #e8ebef;
+            font-size: 0.8rem;
+            color: #6b7280;
+          "
+        >
+          Sticky footer — pinned to the panel while the content scrolls
+        </div>
       </div>
     </div>
 

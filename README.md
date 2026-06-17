@@ -342,6 +342,38 @@ export function App() {
   surface with: a collapse chevron, app icon + name, refresh, and a "more (⋯)"
   button on the panel; a close (X) on modals and floating windows.
 
+### Pinned footers and scrolling (the scroll layer)
+
+In production each surface is a real `<iframe>` inside an `overflow: hidden`
+wrapper, so a `position: fixed; bottom: 0` footer pins to the surface bottom
+while the app scrolls. The host renders surfaces as plain `<div>`s (no iframe), so
+to reproduce that, wrap your content in a **scroll layer**:
+
+```html
+<div class="pd-mock-panel">
+  <div class="pd-mock-scroll-layer">
+    <!-- your App Extension renders here -->
+    <footer style="position: fixed; bottom: 0">…</footer>
+  </div>
+</div>
+```
+
+With the scroll layer present, the surface becomes a non-scrolling **frame** and
+the scroll layer is the single scroll container, so a `position: fixed` footer
+pins to the surface instead of the browser window — the same CSS that works in
+production. It is **opt-in**: without `.pd-mock-scroll-layer`, the surface scrolls
+itself as before.
+
+- The scroll layer is **your** element — add it in your own markup/JSX. The host
+  never moves your content (re-parenting framework-rendered nodes would break the
+  framework); it only injects its header as the wrapper's first child.
+- Works on all three surfaces (panel, modal, floating window).
+- If your layout does not already reserve the footer's height, add
+  `padding-bottom: <footer height>` to `.pd-mock-scroll-layer` so the last
+  content clears the footer.
+
+See [ADR-0010](./docs/adr/0010-scroll-layer-for-pinned-surface-content.md).
+
 ### Which element becomes the active surface
 
 The host picks the **first** element (in DOM order) matching any surface class or
