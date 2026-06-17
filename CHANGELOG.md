@@ -1,5 +1,11 @@
 # pipedrive-app-extensions-mock-host
 
+## 0.4.0
+
+### Minor Changes
+
+- `GET_METADATA` now reports the hosting window (dev browser viewport), not the surface's own size — matching real Pipedrive's `windowWidth`/`windowHeight` semantics.
+
 ## 0.3.1
 
 ### Patch Changes
