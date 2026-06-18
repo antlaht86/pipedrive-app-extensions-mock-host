@@ -1,4 +1,7 @@
 import { afterEach, expect, test } from 'vitest';
+import { createActiveLog } from './active-log.js';
+import { createDevTool, type DevTool } from './dev-tool.js';
+import { createHostEffects } from './host-effects.js';
 import { startPipedriveMockHost, type MockHost } from './index.js';
 
 // Dev Tool behaviour (ADR-0009, docs/plans/2026-06-16-dev-tool-design.md). These
@@ -8,16 +11,38 @@ import { startPipedriveMockHost, type MockHost } from './index.js';
 // Tear the host down in afterEach (not per test) so a failed assertion can't
 // leave the singleton running and pollute the next test.
 let host: MockHost | undefined;
+// Standalone Dev Tools (built directly, not via the host) — torn down so their
+// surface observers on document.body do not leak into the next test.
+const standaloneDevTools: DevTool[] = [];
 
 afterEach(() => {
   host?.teardown();
   host = undefined;
+  standaloneDevTools.splice(0).forEach((dt) => dt.teardown());
   document
     .querySelectorAll(
       'pipedrive-mock-host, .pd-mock-panel, .pd-mock-modal, .pd-mock-floating-window',
     )
     .forEach((el) => el.remove());
 });
+
+// Build the Dev Tool's collaborators standalone: a real Active Log and a real
+// host-effects over a fresh shadow root, exactly as startPipedriveMockHost wires
+// them — so a control is observed by its real effect, not a spy.
+const mountDevTool = (
+  options: Parameters<typeof createDevTool>[0]['options'] = {},
+  config = {},
+): { root: ShadowRoot; tool: HTMLElement; devTool: DevTool } => {
+  const root = document.createElement('div').attachShadow({ mode: 'open' });
+  const log = createActiveLog();
+  const host = createHostEffects({ shadowRoot: root, config, log: log.write });
+  const devTool = createDevTool({ root, host, log, options });
+  standaloneDevTools.push(devTool);
+  const tool = root.querySelector<HTMLElement>(
+    '[aria-label="Mock host dev tool"]',
+  )!;
+  return { root, tool, devTool };
+};
 
 test('renders the dev tool into the shadow root by default', () => {
   host = startPipedriveMockHost();
@@ -532,4 +557,56 @@ test('clicking the header row (not just the toggle) collapses and expands the de
   header?.click();
   expect(tool?.getAttribute('data-collapsed')).not.toBe('true');
   expect(toggle?.getAttribute('aria-expanded')).toBe('true');
+});
+
+// ─── Standalone (createDevTool driven directly) ──────────────────────────────
+
+test('createDevTool mounts the overlay into the given root', () => {
+  const { root } = mountDevTool();
+
+  expect(
+    root.querySelector('[aria-label="Mock host dev tool"]'),
+  ).not.toBeNull();
+});
+
+test('the resize control drives the host-effects seam and logs the action', () => {
+  const panel = document.createElement('div');
+  panel.className = 'pd-mock-panel';
+  document.body.appendChild(panel);
+
+  const { tool } = mountDevTool();
+  const height = tool.querySelector<HTMLInputElement>(
+    'input[aria-label="Resize height"]',
+  );
+  if (height) {
+    height.value = '300';
+  }
+  tool
+    .querySelector<HTMLButtonElement>('button[aria-label="Apply resize"]')
+    ?.click();
+
+  expect(panel.style.height).toBe('300px');
+  const log = tool.querySelector('[aria-label="Active log"]');
+  expect(log?.textContent).toContain('dev tool action: resize');
+});
+
+test('setPosition moves the standalone overlay at runtime', () => {
+  const { tool, devTool } = mountDevTool({ position: 'top-left' });
+  expect(tool.getAttribute('data-position')).toBe('top-left');
+
+  devTool.setPosition('bottom-right');
+  expect(tool.getAttribute('data-position')).toBe('bottom-right');
+});
+
+test('the focus control is shown when built over a floating-window surface', () => {
+  const fw = document.createElement('div');
+  fw.className = 'pd-mock-floating-window';
+  document.body.appendChild(fw);
+
+  const { tool } = mountDevTool();
+  const focusRow = tool
+    .querySelector<HTMLButtonElement>('button[aria-label="Toggle focus mode"]')
+    ?.closest('.pd-mock-dev-tool-control');
+
+  expect(focusRow?.hasAttribute('hidden')).toBe(false);
 });

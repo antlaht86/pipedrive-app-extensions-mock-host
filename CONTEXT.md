@@ -96,6 +96,14 @@ A transient message shown by `SHOW_SNACKBAR`. It is **not** a Surface — it
 appears at the browser's bottom-right corner, outside every Surface, and never
 nests inside the panel/modal/floating window.
 
+**Host chrome**:
+The host-injected UI _around_ the App Extension — the surface header bars and the
+page-corner indicators (notification badge, focus-mode indicator, redirect
+banner). It is none of the App Extension's own content; in production Pipedrive
+draws it outside the app's iframe. Distinct from an overlay (Snackbar,
+confirmation, Modal), which is a host-rendered pop-up the chrome does not contain.
+_Avoid_: frame, wrapper, decoration.
+
 **Dev Tool**:
 The Mock Host's own interactive control overlay, rendered by the host into its
 shadow root like any other host chrome — it needs no consumer markup and is not
@@ -113,6 +121,29 @@ back, Tracks received, dev diagnostics, and Dev Tool actions (a resize or focus
 toggle the developer triggered from the Dev Tool itself). Shown whenever the Dev
 Tool is open.
 _Avoid_: console, history, trace.
+
+**Command intake**:
+The module that takes a single Command — its name, its arguments, and a one-shot
+reply — and produces the response, delegating every visible effect to the host.
+It knows the wire vocabulary (which Commands exist, their argument shapes, which
+Surface each one applies to) but touches no DOM of its own.
+_Avoid_: handler, dispatcher, controller.
+
+**Message router**:
+The module that receives a parsed message off the transport and decides whether
+it is a Command, an Event listener registration, or a Track, forwarding each to
+the right place. It records every message the App Extension sends (what the
+Active Log and `getCalls` report) and guarantees each Command is answered exactly
+once.
+_Avoid_: bus, dispatcher (reserve dispatch for the Command intake's own verb).
+
+**host-effects**:
+The seam between the Command intake and the effects only the host can produce,
+grouped as the Surface, Event push, the host's own overlays (Snackbar,
+confirmation, modal, chrome), and the consumer's config overrides. The Dev Tool
+drives this same seam, since it too may only trigger host-producible effects
+(ADR-0009).
+_Avoid_: services, API, backend.
 
 ## Example dialogue
 
