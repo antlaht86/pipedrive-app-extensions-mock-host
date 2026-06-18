@@ -41,7 +41,7 @@ export function handleCommand(
       const init = args as
         | { size?: { width?: number; height?: number } }
         | undefined;
-      host.surface.decorate();
+      host.chrome.decorate();
       host.surface.resize(init?.size, 'initialize');
       reply();
       break;
@@ -69,7 +69,7 @@ export function handleCommand(
       break;
     }
     case COMMAND_GET_SIGNED_TOKEN: {
-      void host.overlays.signedToken().then((token) => reply({ token }));
+      void host.signedToken().then((token) => reply({ token }));
       break;
     }
     case COMMAND_SET_NOTIFICATION: {
@@ -78,13 +78,13 @@ export function handleCommand(
         break;
       }
       const notif = args as { number?: number } | undefined;
-      host.surface.setNotification(notif?.number);
+      host.chrome.setNotification(notif?.number);
       reply();
       break;
     }
     case COMMAND_OPEN_MODAL: {
-      void host.overlays
-        .openModal(args as ModalArgs)
+      void host.overlays.modal
+        .open(args as ModalArgs)
         .then((result) => reply(result));
       break;
     }
@@ -92,7 +92,7 @@ export function handleCommand(
       // CLOSE_MODAL only applies to custom modals; entity modals are native
       // Pipedrive forms the app cannot close. Report and do nothing else, but
       // still reply so the SDK promise resolves.
-      if (!host.overlays.closeModal()) {
+      if (!host.overlays.modal.closeCustom()) {
         console.error(
           '[pipedrive-mock-host] CLOSE_MODAL ignored: no custom modal is open (CLOSE_MODAL applies only to custom modals).',
         );
@@ -117,7 +117,7 @@ export function handleCommand(
     }
     case COMMAND_REDIRECT_TO: {
       const redir = args as { view?: string } | undefined;
-      host.overlays.redirect(redir?.view ?? '');
+      host.chrome.redirect(redir?.view ?? '');
       reply();
       break;
     }
@@ -126,14 +126,14 @@ export function handleCommand(
         reply();
         break;
       }
-      host.surface.setFocusMode(args === true);
+      host.chrome.setFocusMode(args === true);
       reply();
       break;
     }
     case COMMAND_GET_METADATA: {
       // windowWidth/windowHeight are the HOSTING WINDOW dimensions, not the
       // surface's own size. In dev the hosting window is the browser viewport.
-      reply(host.overlays.metadata());
+      reply(host.hostingWindow());
       break;
     }
     default:

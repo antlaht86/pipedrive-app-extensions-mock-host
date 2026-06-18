@@ -372,7 +372,7 @@ export function createDevTool(deps: DevToolDeps): DevTool {
     const on = focusToggle.getAttribute('aria-pressed') !== 'true';
     focusToggle.setAttribute('aria-pressed', String(on));
     focusToggle.textContent = on ? 'On' : 'Off';
-    host.surface.setFocusMode(on);
+    host.chrome.setFocusMode(on);
     log.write('dev tool', 'action', 'focus mode', { enabled: on });
   });
   focusRow.append(focusLabel, focusToggle);

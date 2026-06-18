@@ -96,6 +96,14 @@ A transient message shown by `SHOW_SNACKBAR`. It is **not** a Surface — it
 appears at the browser's bottom-right corner, outside every Surface, and never
 nests inside the panel/modal/floating window.
 
+**Host chrome**:
+The host-injected UI _around_ the App Extension — the surface header bars and the
+page-corner indicators (notification badge, focus-mode indicator, redirect
+banner). It is none of the App Extension's own content; in production Pipedrive
+draws it outside the app's iframe. Distinct from an overlay (Snackbar,
+confirmation, Modal), which is a host-rendered pop-up the chrome does not contain.
+_Avoid_: frame, wrapper, decoration.
+
 **Dev Tool**:
 The Mock Host's own interactive control overlay, rendered by the host into its
 shadow root like any other host chrome — it needs no consumer markup and is not

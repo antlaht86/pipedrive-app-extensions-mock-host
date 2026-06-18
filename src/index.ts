@@ -246,7 +246,8 @@ export function startPipedriveMockHost(config: MockHostConfig = {}): MockHost {
     if (!payload) {
       return;
     }
-    const port = event.ports[0] as MessagePort | undefined;
+    // `noUncheckedIndexedAccess` already types this `MessagePort | undefined`.
+    const port = event.ports[0];
     router.dispatch(
       payload,
       (response) => port?.postMessage({ data: response }),

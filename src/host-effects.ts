@@ -1,10 +1,6 @@
 import { createEvents, type Events, type LogFn } from './events.js';
-import type {
-  ConfirmationArgs,
-  ModalArgs,
-  ModalResult,
-  MockHostConfig,
-} from './index.js';
+import type { ConfirmationArgs, MockHostConfig } from './index.js';
+import { createModal, type Modal } from './modal.js';
 import {
   applySize,
   resolveSurface,
@@ -25,7 +21,7 @@ import {
  * (ADR-0009). Built over a real shadow root, so tests can construct it directly.
  */
 export interface HostEffects {
-  /** The Surface the App Extension renders into, and its host-injected chrome. */
+  /** The Surface itself (CONTEXT.md): its type, size and visibility. */
   readonly surface: {
     /** The active surface's type (`pd-mock-panel` …), or undefined if none. */
     type(): string | undefined;
@@ -38,42 +34,44 @@ export interface HostEffects {
       size: { width?: number; height?: number } | undefined,
       context: string,
     ): boolean;
-    /** Inject the host title bar onto each class-identified surface (idempotent). */
-    decorate(): void;
+    /** Show/hide the floating window and tell the app via VISIBILITY. */
+    setFloatingWindowVisible(visible: boolean): void;
     /**
      * True when the active surface is a Floating Window. Otherwise logs a
      * dev diagnostic naming `command` and returns false (ADR-0008).
      */
     requireFloatingWindow(command: string): boolean;
-    /** Show/hide the floating window and tell the app via VISIBILITY. */
-    setFloatingWindowVisible(visible: boolean): void;
+  };
+  /** Host-injected UI around the app: the surface header bars and page-corner
+   * indicators. None of this is the app's own content. */
+  readonly chrome: {
+    /** Inject the host title bar onto each class-identified surface (idempotent). */
+    decorate(): void;
     /** Toggle focus mode: disable the window's close (X) and show an indicator. */
     setFocusMode(enabled: boolean): void;
     /** Set (or clear) the floating window's notification badge. */
     setNotification(count: number | undefined): void;
+    /** Show a transient redirect banner. */
+    redirect(view: string): void;
   };
-  /** The host-initiated Event channel (CONTEXT.md "Event"). */
-  readonly events: Events;
-  /** The host's own shadow-root UI plus window-level reports. */
+  /** The host's own pop-up UI — everything here draws an overlay on demand. */
   readonly overlays: {
-    /**
-     * The HOSTING WINDOW dimensions (not the surface size) — in dev the browser
-     * viewport. Apps size a surface relative to these (e.g. `windowHeight * 0.9`).
-     */
-    metadata(): { windowWidth: number; windowHeight: number };
     /** Render a transient snackbar at the browser's bottom-right. */
     snackbar(message: string, link?: { url: string; label: string }): void;
     /** Ask the user to confirm; resolves the answer (override or interactive). */
     confirmation(args: ConfirmationArgs): Promise<boolean>;
-    /** Open a modal (custom / entity / onModal override); resolves its result. */
-    openModal(attrs: ModalArgs): Promise<ModalResult>;
-    /** Close the open custom modal. Returns false if none is open (entity/none). */
-    closeModal(): boolean;
-    /** Show a transient redirect banner. */
-    redirect(view: string): void;
-    /** The dev signed token (config override or the default). Never rejects. */
-    signedToken(): Promise<string>;
+    /** The Modal (Custom / Entity); open one and resolve it, or close the custom. */
+    modal: Modal;
   };
+  /** The host-initiated Event channel (CONTEXT.md "Event"). */
+  readonly events: Events;
+  /**
+   * The HOSTING WINDOW dimensions (CONTEXT.md) — not the surface size; in dev the
+   * browser viewport. Apps size a surface relative to these (`windowHeight * 0.9`).
+   */
+  hostingWindow(): { windowWidth: number; windowHeight: number };
+  /** The dev signed token (config override or the default). Never rejects. */
+  signedToken(): Promise<string>;
   /** The consumer's configuration and headless overrides. */
   readonly config: MockHostConfig;
 }
@@ -145,8 +143,9 @@ const SNACKBAR_STYLES = `
   }
 `;
 
-// Confirmation dialog and modals — centred overlays in the shadow root.
-const CONFIRMATION_STYLES = `
+// Shared centred-dialog stylesheet — the backdrop, dialog box, buttons and pop
+// animation used by both the confirmation dialog and the Modal.
+const DIALOG_STYLES = `
   .pd-mock-confirm-backdrop {
     position: fixed;
     inset: 0;
@@ -378,14 +377,14 @@ export function createHostEffects(deps: HostEffectsDeps): HostEffects {
     window.setTimeout(() => bar.remove(), 5000);
   };
 
-  // ─── Confirmation & modals ───────────────────────────────────────────────────
-  const ensureConfirmationStyles = (): void => {
-    if (shadowRoot.querySelector('style[data-pd-mock="confirm-styles"]')) {
+  // ─── Centred dialogs: confirmation + Modal share a shell and a stylesheet ────
+  const ensureDialogStyles = (): void => {
+    if (shadowRoot.querySelector('style[data-pd-mock="dialog-styles"]')) {
       return;
     }
     const style = document.createElement('style');
-    style.setAttribute('data-pd-mock', 'confirm-styles');
-    style.textContent = CONFIRMATION_STYLES;
+    style.setAttribute('data-pd-mock', 'dialog-styles');
+    style.textContent = DIALOG_STYLES;
     shadowRoot.appendChild(style);
   };
 
@@ -409,7 +408,7 @@ export function createHostEffects(deps: HostEffectsDeps): HostEffects {
     args: ConfirmationArgs,
     onResolve: (confirmed: boolean) => void,
   ): void => {
-    ensureConfirmationStyles();
+    ensureDialogStyles();
     const { backdrop, dialog } = createDialogShell();
 
     const title = document.createElement('h2');
@@ -471,179 +470,16 @@ export function createHostEffects(deps: HostEffectsDeps): HostEffects {
     return new Promise<boolean>((resolve) => renderConfirmation(args, resolve));
   };
 
-  // The currently open modal, if any, so closeModal can dismiss it.
-  let resolveOpenModal: ((result: ModalResult) => void) | null = null;
-  let removeOpenModal: (() => void) | null = null;
-  // Which kind of modal is open, so closeModal (custom-modal-only) can tell
-  // whether it applies. Entity modals (deal/person/…) are native Pipedrive
-  // forms the app cannot close programmatically.
-  let openModalKind: 'custom' | 'entity' | null = null;
-
-  const finishModal = (result: ModalResult): void => {
-    removeOpenModal?.();
-    removeOpenModal = null;
-    openModalKind = null;
-    const resolve = resolveOpenModal;
-    resolveOpenModal = null;
-    resolve?.(result);
-  };
-
-  // The title bar Pipedrive frames a shadow-DOM modal dialog with: a title and a
-  // close (X) button. Shared by the custom modal dialog.
-  const buildModalHeader = (
-    title: string,
-    onClose: () => void,
-  ): HTMLElement => {
-    const header = document.createElement('div');
-    header.className = 'pd-mock-modal-header';
-    const titleEl = document.createElement('span');
-    titleEl.className = 'pd-mock-modal-title';
-    titleEl.textContent = title;
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.className = 'pd-mock-modal-close';
-    close.setAttribute('aria-label', 'Close');
-    close.addEventListener('click', onClose);
-    header.append(titleEl, close);
-    return header;
-  };
-
-  const openEntityModal = (
-    attrs: ModalArgs,
-    onResolve: (result: ModalResult) => void,
-  ): void => {
-    ensureConfirmationStyles();
-    resolveOpenModal = onResolve;
-    openModalKind = 'entity';
-
-    const { backdrop, dialog } = createDialogShell();
-
-    const title = document.createElement('h2');
-    title.className = 'pd-mock-confirm-title';
-    title.textContent = `Modal: ${attrs.type ?? ''}`;
-    dialog.appendChild(title);
-
-    const entries = Object.entries(attrs.prefill ?? {});
-    if (entries.length === 0) {
-      const empty = document.createElement('p');
-      empty.className = 'pd-mock-prefill-empty';
-      empty.textContent = '(no prefill)';
-      dialog.appendChild(empty);
-    } else {
-      const prefill = document.createElement('dl');
-      prefill.className = 'pd-mock-prefill';
-      for (const [key, value] of entries) {
-        const dt = document.createElement('dt');
-        dt.className = 'pd-mock-prefill-key';
-        dt.textContent = key;
-        const dd = document.createElement('dd');
-        dd.className = 'pd-mock-prefill-val';
-        dd.textContent =
-          typeof value === 'string' ? value : JSON.stringify(value);
-        prefill.append(dt, dd);
-      }
-      dialog.appendChild(prefill);
-    }
-
-    const actions = document.createElement('div');
-    actions.className = 'pd-mock-confirm-actions';
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'pd-mock-confirm-btn';
-    closeBtn.textContent = 'Close';
-    closeBtn.addEventListener('click', () => finishModal({ status: 'closed' }));
-    const submitBtn = document.createElement('button');
-    submitBtn.type = 'button';
-    submitBtn.className = 'pd-mock-confirm-btn pd-mock-confirm-btn--ok';
-    submitBtn.textContent = 'Submit';
-    submitBtn.addEventListener('click', () =>
-      finishModal({ status: 'submitted', id: 1 }),
-    );
-    actions.append(closeBtn, submitBtn);
-    dialog.appendChild(actions);
-
-    backdrop.appendChild(dialog);
-    shadowRoot.appendChild(backdrop);
-    removeOpenModal = () => backdrop.remove();
-  };
-
-  const resolveCustomModalUrl = (attrs: ModalArgs): string | undefined => {
-    const cm = config.customModals;
-    let url: string | undefined;
-    if (typeof cm === 'function') {
-      url = cm(attrs);
-    } else if (cm && attrs.action_id) {
-      url = cm[attrs.action_id];
-    }
-    return url ?? attrs.data?.url;
-  };
-
-  const openCustomModal = (
-    attrs: ModalArgs,
-    onResolve: (result: ModalResult) => void,
-  ): void => {
-    ensureConfirmationStyles();
-    resolveOpenModal = onResolve;
-    openModalKind = 'custom';
-
-    const { backdrop, dialog } = createDialogShell('pd-mock-confirm--custom');
-
-    // Pipedrive frames a custom modal with a title bar and a close (X) button;
-    // the X dismisses it, firing CLOSE_CUSTOM_MODAL just like the command does.
-    dialog.appendChild(
-      buildModalHeader(appName, () => {
-        events.emit(EVENT_CLOSE_CUSTOM_MODAL, undefined);
-        finishModal({ status: 'closed' });
-      }),
-    );
-
-    const url = resolveCustomModalUrl(attrs);
-    if (url) {
-      const iframe = document.createElement('iframe');
-      iframe.className = 'pd-mock-custom-frame';
-      iframe.title = 'custom modal';
-      iframe.src = url;
-      dialog.appendChild(iframe);
-    } else {
-      const placeholder = document.createElement('p');
-      placeholder.textContent = `custom_modal: ${attrs.action_id ?? ''} (no URL configured)`;
-      dialog.appendChild(placeholder);
-    }
-
-    backdrop.appendChild(dialog);
-    shadowRoot.appendChild(backdrop);
-    removeOpenModal = () => backdrop.remove();
-  };
-
-  const openModal = (attrs: ModalArgs): Promise<ModalResult> => {
-    if (config.onModal) {
-      return (async () => {
-        try {
-          return (await config.onModal!(attrs)) ?? { status: 'closed' };
-        } catch {
-          return { status: 'closed' };
-        }
-      })();
-    }
-    if (attrs.type === 'custom_modal') {
-      return new Promise<ModalResult>((resolve) =>
-        openCustomModal(attrs, resolve),
-      );
-    }
-    return new Promise<ModalResult>((resolve) =>
-      openEntityModal(attrs, resolve),
-    );
-  };
-
-  const closeModal = (): boolean => {
-    if (openModalKind !== 'custom') {
-      return false;
-    }
-    // Closing via command fires CLOSE_CUSTOM_MODAL, like the user's Close button.
-    events.emit(EVENT_CLOSE_CUSTOM_MODAL, undefined);
-    finishModal({ status: 'closed' });
-    return true;
-  };
+  // The Modal owns its own open/close state; it renders through the shared dialog
+  // shell and emits CLOSE_CUSTOM_MODAL via the host's Event channel.
+  const modal = createModal({
+    shadowRoot,
+    config,
+    appName,
+    emitClose: () => events.emit(EVENT_CLOSE_CUSTOM_MODAL, undefined),
+    ensureDialogStyles,
+    createDialogShell,
+  });
 
   // ─── Chrome layer (notification, focus indicator, redirect banner) ───────────
   const ensureChrome = (): HTMLElement => {
@@ -833,32 +669,33 @@ export function createHostEffects(deps: HostEffectsDeps): HostEffects {
     surface: {
       type: () => surfaceTypeOf(resolveSurface()),
       resize: applySize,
-      decorate,
-      requireFloatingWindow,
       setFloatingWindowVisible,
+      requireFloatingWindow,
+    },
+    chrome: {
+      decorate,
       setFocusMode,
       setNotification,
+      redirect,
     },
     overlays: {
-      metadata: () => ({
-        windowWidth: Math.round(window.innerWidth),
-        windowHeight: Math.round(window.innerHeight),
-      }),
       snackbar,
       confirmation,
-      openModal,
-      closeModal,
-      redirect,
-      signedToken: async () => {
-        try {
-          return config.getSignedToken
-            ? await config.getSignedToken()
-            : DEFAULT_SIGNED_TOKEN;
-        } catch {
-          // Never hang the caller: fall back to the default dev token.
-          return DEFAULT_SIGNED_TOKEN;
-        }
-      },
+      modal,
+    },
+    hostingWindow: () => ({
+      windowWidth: Math.round(window.innerWidth),
+      windowHeight: Math.round(window.innerHeight),
+    }),
+    signedToken: async () => {
+      try {
+        return config.getSignedToken
+          ? await config.getSignedToken()
+          : DEFAULT_SIGNED_TOKEN;
+      } catch {
+        // Never hang the caller: fall back to the default dev token.
+        return DEFAULT_SIGNED_TOKEN;
+      }
     },
   };
 }
