@@ -1,5 +1,11 @@
 # pipedrive-app-extensions-mock-host
 
+## 0.4.2
+
+### Patch Changes
+
+- 0dcc6b1: update code interfaces
+
 ## 0.4.1
 
 ### Patch Changes
