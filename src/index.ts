@@ -11,12 +11,6 @@
  * implementation is built up incrementally, one vertical slice at a time.
  */
 
-/**
- * Placeholder export so this remains a module until the public API lands.
- * Bumped manually for now; it is not auto-synced with package.json.
- */
-export const VERSION = '0.0.0';
-
 /** Arguments the App Extension passes to `SHOW_CONFIRMATION`. */
 export interface ConfirmationArgs {
   title: string;
