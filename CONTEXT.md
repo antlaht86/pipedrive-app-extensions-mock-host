@@ -114,6 +114,29 @@ toggle the developer triggered from the Dev Tool itself). Shown whenever the Dev
 Tool is open.
 _Avoid_: console, history, trace.
 
+**Command intake**:
+The module that takes a single Command — its name, its arguments, and a one-shot
+reply — and produces the response, delegating every visible effect to the host.
+It knows the wire vocabulary (which Commands exist, their argument shapes, which
+Surface each one applies to) but touches no DOM of its own.
+_Avoid_: handler, dispatcher, controller.
+
+**Message router**:
+The module that receives a parsed message off the transport and decides whether
+it is a Command, an Event listener registration, or a Track, forwarding each to
+the right place. It records every message the App Extension sends (what the
+Active Log and `getCalls` report) and guarantees each Command is answered exactly
+once.
+_Avoid_: bus, dispatcher (reserve dispatch for the Command intake's own verb).
+
+**host-effects**:
+The seam between the Command intake and the effects only the host can produce,
+grouped as the Surface, Event push, the host's own overlays (Snackbar,
+confirmation, modal, chrome), and the consumer's config overrides. The Dev Tool
+drives this same seam, since it too may only trigger host-producible effects
+(ADR-0009).
+_Avoid_: services, API, backend.
+
 ## Example dialogue
 
 > **Dev:** When the App Extension calls `execute(SHOW_SNACKBAR)`, who renders it?

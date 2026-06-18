@@ -10,6 +10,12 @@
   // Manual playgrounds — not part of the package, no need to analyze them.
   "ignorePatterns": ["testing/**"],
 
+  // Test files are allowed to repeat structure (arrange/act/assert per case, the
+  // same setup across cases); don't gate code duplication on them.
+  "duplicates": {
+    "ignore": ["**/*.test.ts"],
+  },
+
   "audit": {
     // The Claude Code commit/push gate hook runs `fallow audit`. Gate only on
     // issues this changeset introduces, not pre-existing ones.
